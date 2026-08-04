@@ -116,6 +116,7 @@ namespace EnigmaFix {
         inipp::extract(config.sections["Resolution"]["VerticalResolution"], PlayerSettingsConf.RES.Resolution.y);
         inipp::extract(config.sections["Resolution"]["UseResolutionScale"], PlayerSettingsConf.RES.UseCustomResScale);
         inipp::extract(config.sections["Resolution"]["ResolutionScalePercentage"], PlayerSettingsConf.RES.CustomResScale);
+
         // FOV Settings
         inipp::extract(config.sections["FieldOfView"]["UseCustomFOV"], PlayerSettingsConf.FOV.UseCustomFOV);
         inipp::extract(config.sections["FieldOfView"]["FieldOfView"], PlayerSettingsConf.FOV.FieldOfView);
@@ -162,11 +163,18 @@ namespace EnigmaFix {
         // Launcher Settings
         inipp::extract(config.sections["Launcher"]["IgnoreUpdates"], PlayerSettingsConf.LS.IgnoreUpdates);
 
-        // Check if the Horizontal or Vertical Res is 0. If so, default the custom resolution to the current display resolution.
+        // Check if the Horizontal or Vertical Res is 0. If so, default        // If resolution is 0x0, use the current desktop resolution.
         if (PlayerSettingsConf.RES.Resolution.x == 0 || PlayerSettingsConf.RES.Resolution.y == 0) {
-            auto CurrentResolution                = Util::GetCurrentDisplayResolution();
+            Util::DesktopResolution CurrentResolution = Util::GetCurrentDisplayResolution();
             PlayerSettingsConf.RES.Resolution.x   = CurrentResolution.x;
             PlayerSettingsConf.RES.Resolution.y   = CurrentResolution.y;
+            spdlog::info("ConfigManager: Custom Resolution is set to 0x0. Defaulting to {}x{}.", PlayerSettingsConf.RES.Resolution.x, PlayerSettingsConf.RES.Resolution.y);
+        }
+
+        // Pre-initialize InternalResolution to the user's custom resolution to prevent a fatal size mismatch
+        // during early engine rendering before the dynamic main-render-target detection kicks in.
+        if (PlayerSettingsConf.RES.UseCustomRes) {
+            PlayerSettingsConf.INS.InternalResolution = PlayerSettingsConf.RES.Resolution;
         }
         AlreadyReadConfig = true; // After the INI file has successfully been read for the first time, allow writing.
     }

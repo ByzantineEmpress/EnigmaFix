@@ -30,6 +30,7 @@ SOFTWARE.
 // System Libraries
 //#include <comip.h>
 #include <memory>
+#include <mutex>
 // Third Party Libraries
 #include <map>
 #include <spdlog/spdlog.h>
@@ -39,6 +40,7 @@ SOFTWARE.
 #include "backends/imgui_impl_dx11.h"
 
 // Variables
+static std::mutex g_cbMutex;
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 //// D3D11 related variables
 HWND window = nullptr;
@@ -135,6 +137,7 @@ void resizeRt(D3D11_TEXTURE2D_DESC *pDesc, int Width, int Height, int DesiredWid
 // Resizes constant buffers
 bool cbResize(ID3D11DeviceContext* pContext, D3D11_RENDER_TARGET_VIEW_DESC pDesc, D3D11_TEXTURE2D_DESC texdesc, D3D11_VIEWPORT vp)
 {
+    std::lock_guard<std::mutex> lock(g_cbMutex);
     // TODO: Investigate the pixel shader constant buffer responsible for the YebisMizuchi draw calls. There's a few interesting parameters that might need to be investigated.
     // 1. fParam_ScreenSpaceScale - This is located at offset 80 with a value of "1.00, -1.00" This might be able to adjust the scaling of the post process effects.
     // 2. afUVWQ_TexCoordScaleOffset
@@ -208,6 +211,7 @@ bool cbResize(ID3D11DeviceContext* pContext, D3D11_RENDER_TARGET_VIEW_DESC pDesc
 
 void cbPatchYebis(ID3D11DeviceContext* pContext)
 {
+    std::lock_guard<std::mutex> lock(g_cbMutex);
     if (!PlayerSettingsRm.RES.UseCustomRes) return;
     if (*InternalHorizontalRes == 1920 && *InternalVerticalRes == 1080) return; // Only needed when the resolution isn't 1920x1080
 
@@ -333,6 +337,7 @@ void cbPatchYebis(ID3D11DeviceContext* pContext)
 
 void cbPatchMizuchiCopyback(ID3D11DeviceContext* pContext)
 {
+    std::lock_guard<std::mutex> lock(g_cbMutex);
     if (!PlayerSettingsRm.RES.UseCustomRes) return;
 
     ID3D11Buffer* vsBuffer = nullptr;
@@ -483,6 +488,7 @@ bool vpResize(ID3D11DeviceContext* pContext)
                         }
                         else { spdlog::error("Viewport Resource returned null."); }
                     }
+                    rtView->Release();
                 }
             }
         }
@@ -559,6 +565,7 @@ bool srResize(ID3D11DeviceContext* pContext)
                         }
                         else { spdlog::error("Scissor Rect Resource returned null."); }
                     }
+                    rtView->Release();
                 }
             }
         }
@@ -573,6 +580,7 @@ namespace EnigmaFix {
         if (mainRenderTargetView) {
             pContext->OMSetRenderTargets(0, 0, 0);
             mainRenderTargetView->Release(); // WE DON'T NEED TO SET THE RTVIEW TO NULL AFTER RELEASING IT, GPT!
+            mainRenderTargetView = nullptr;
         }
 
         // TODO: Potentially investigate why oResizeBuffers isn't working.
@@ -584,6 +592,7 @@ namespace EnigmaFix {
         if (SUCCEEDED(hr)) {
             if (mainRenderTargetView) {
                 mainRenderTargetView->Release(); // WE DON'T NEED TO SET THE MRTVIEW TO NULL AFTER RELEASING IT, GPT!
+                mainRenderTargetView = nullptr;
             }
             DX::ThrowIfFailed(pDevice->CreateRenderTargetView(pBuffer, nullptr, &mainRenderTargetView));
             pBuffer->Release(); // Release the reference acquired by GetBuffer
@@ -661,6 +670,15 @@ namespace EnigmaFix {
     // A hook that contains the needed logic for changing the Shadow, SSR, SSAO, and Post Processing resolution.
     HRESULT __stdcall RenderManager::hkCreateTexture2D(ID3D11Device* pDevice, D3D11_TEXTURE2D_DESC* pDesc, D3D11_SUBRESOURCE_DATA* pInitialData, ID3D11Texture2D** ppTexture2D)
     {
+        if (pDesc == nullptr) {
+            return rm_Instance.oCreateTexture2D(pDevice, pDesc, pInitialData, ppTexture2D);
+        }
+
+        // Safety check: Cannot safely resize a texture if it has initial data
+        if (pInitialData != nullptr) {
+            return rm_Instance.oCreateTexture2D(pDevice, pDesc, pInitialData, ppTexture2D);
+        }
+
         // Update our rendering settings related settings before we modify anything.
         int ShadowRes = PlayerSettingsRm.RS.ShadowRes;
         int ScreenSpaceEffectsScale = PlayerSettingsRm.RS.ScreenSpaceEffectsDivider;
@@ -672,7 +690,7 @@ namespace EnigmaFix {
         if (pDesc->BindFlags == (D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET)) {
             // We are simply using this to update our current internal resolution for the rest of the logic.
             // Checks for the specific texture format for CopyDeferredColor_Hist, and checks to see if it has twelve mipmaps, if so, we got our suspect render target. 11 only works with resolutions below 1440p, while 12 only works with anything higher than 1080p.
-            if (pDesc->Format == DXGI_FORMAT_R16G16B16A16_FLOAT && (pDesc->MipLevels == 11 || pDesc->MipLevels == 12)) { // Checks to see if it has twelve mipmaps, if so, we got our suspect render target. 11 only works with resolutions below 1440p, while 12 only works with anything higher than 1080p.
+            if (pDesc->Format == DXGI_FORMAT_R16G16B16A16_FLOAT && pDesc->MipLevels >= 12) { // Restored: Must be >= 12 to avoid catching 1024x1024 textures (11 mips).
                 if (pDesc->Width != *InternalHorizontalRes || pDesc->Height != *InternalVerticalRes) {
                     iW = pDesc->Width;
                     iH = pDesc->Height;
@@ -760,13 +778,11 @@ namespace EnigmaFix {
                     }
                     case DXGI_FORMAT_B8G8R8A8_UNORM: {
                         // The pause menu background effect that occurs after the "mizuchi-copyback" tagged drawcall.
-                        spdlog::info("Found Pause Menu Background Render Target (After 'mizuchi-copyback'). Changing resolution from {}x{} to {}x{}.", pDesc->Width, pDesc->Height, iW, iH);
                         resizeRt(pDesc, 1920, 1080, *InternalHorizontalRes, *InternalVerticalRes);
                         break;
                     }
                     // TODO: Fix this. It's not running.
                     case DXGI_FORMAT_R8G8B8A8_UNORM: { // The pause menu background effect that occurs after "yebismizuchi" tagged drawcalls.
-                        spdlog::info("Found Pause Menu Background Render Target (After 'yebismizuchi'). Changing resolution from from {}x{} to {}x{}.", pDesc->Width, pDesc->Height, iW, iH);
                         resizeRt(pDesc, 1920, 1080, *InternalHorizontalRes, *InternalVerticalRes);
                         break;
                     }

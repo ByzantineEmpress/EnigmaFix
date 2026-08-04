@@ -91,52 +91,7 @@ namespace EnigmaFix
 
     void ResCheckFunctionHook(char* param_1, int param_2, int param_3)
     {
-        // Signature Scan Horizontal Res: "80 07 ?? 00 C7 45 ?? 38 04 ?? 00 E8"
-        // Signature Scan Vertical Res:   "38 04 ?? 00 E8 64 BF"
-        auto hResPtr   = reinterpret_cast<int*>(reinterpret_cast<intptr_t>(PatchManagerPDQ.BaseModule) + 0x4858CC);
-        auto vResPtr   = reinterpret_cast<int*>(reinterpret_cast<intptr_t>(PatchManagerPDQ.BaseModule) + 0x4858D3);
-
-        // Signature Scan Horizontal Res 4K Native: "00 0F 00 00 C7 45 C3"
-        // Signature Scan Vertical Res 4K Native:   "70 ?? 00 00 E8 ?? ?? ?? ?? EB ?? E8"
-        // Signature Scan Horizontal Window Size 4K Native: "00 0F 00 00 70 ?? 00 00 C0 5D 00"
-        // Signature Scan Vertical Window Size 4K Native: "70 ?? 00 00 C0 5D 00"
-        // TODO: Set default custom resolution value to "0" in config, check on startup if it's "0", and if so, use the current desktop resolution for the 4K Native mode. Then adjust the resolution dropdown box in the imgui ui to choose the resolution closest to the one in the config (or to simply make it a temporary option if it doesn't exist). That way there's one less thing for the user to customize.
-        auto hRes4KPtr     = reinterpret_cast<int*>(reinterpret_cast<intptr_t>(PatchManagerPDQ.BaseModule) + 0x4858A7);
-        auto vRes4KPtr     = reinterpret_cast<int*>(reinterpret_cast<intptr_t>(PatchManagerPDQ.BaseModule) + 0x4858AE);
-        auto hWinSize4KPtr = reinterpret_cast<int*>(reinterpret_cast<intptr_t>(PatchManagerPDQ.BaseModule) + 0xF58780);
-        auto vWinSize4KPtr = reinterpret_cast<int*>(reinterpret_cast<intptr_t>(PatchManagerPDQ.BaseModule) + 0xF58784);
-
-        // Print out our default internal resolution values, for debugging purposes.
-        spdlog::info("Resolution: Default Internal Resolution : {}x{}", *hResPtr, *vResPtr);
-        spdlog::info("Resolution: 4K Native Default Internal Resolution : {}x{}", *hRes4KPtr, *vRes4KPtr);
-
-        // Grab the current resolution index, so we can adjust the memory value for the internal resolution below the 4K Native mode to their proper resolutions.
-        auto currentResolutionIndexPtr = reinterpret_cast<int*>(*reinterpret_cast<intptr_t*>(reinterpret_cast<intptr_t>(PatchManagerPDQ.BaseModule) + 0x01017E18) + 0xC4);
-        if (int currentResolutionIndex = *currentResolutionIndexPtr; currentResolutionIndex >= 0 && currentResolutionIndex <= 11) {
-            if (hResPtr != nullptr && vResPtr != nullptr) {
-                Memory::Write(reinterpret_cast<uintptr_t>(hResPtr), *resolutionList[currentResolutionIndex].X);
-                Memory::Write(reinterpret_cast<uintptr_t>(vResPtr), *resolutionList[currentResolutionIndex].Y);
-                spdlog::info("Resolution: Patched Internal 1080p Resolution to {}x{}.", *hResPtr, *vResPtr);
-            }
-            else { spdlog::error("Resolution: Horizontal and Vertical Res Pointers came back as null pointers."); }
-        }
-        else {
-            // TODO: Figure out why writing to the internal resolution and window size causes crashing.
-            if (hRes4KPtr != nullptr && vRes4KPtr != nullptr) {
-                Memory::Write(reinterpret_cast<uintptr_t>(hRes4KPtr), PlayerSettingsPDQ.RES.Resolution.x);
-                Memory::Write(reinterpret_cast<uintptr_t>(vRes4KPtr), PlayerSettingsPDQ.RES.Resolution.y);
-                spdlog::info("Resolution: Patched Internal 4K Native Resolution to {}x{}.", *hRes4KPtr, *vRes4KPtr);
-            }
-            else { spdlog::error("Resolution: 4K Native Horizontal and Vertical Res Pointers came back as null pointers."); }
-            if (hWinSize4KPtr != nullptr && vWinSize4KPtr != nullptr) {
-                Memory::Write(reinterpret_cast<uintptr_t>(hWinSize4KPtr), PlayerSettingsPDQ.RES.Resolution.x);
-                Memory::Write(reinterpret_cast<uintptr_t>(vWinSize4KPtr), PlayerSettingsPDQ.RES.Resolution.y);
-                spdlog::info("Resolution: Patched Internal 4K Native Window Size to {}x{}.", *hWinSize4KPtr, *vWinSize4KPtr);
-            }
-            else { spdlog::error("Resolution: 4K Native Horizontal and Vertical Window Size Pointers came back as null pointers."); }
-        }
-
-        // TODO: Add return function here.
+        // Removed hardcoded memory patches that caused access violations on different game builds (like GOG).
         return ResolutionPatchHook.call<void>(param_1, param_2, param_3);
     }
 
@@ -148,7 +103,8 @@ namespace EnigmaFix
 
             // Store original function pointer
             OriginalResCheckFunction = reinterpret_cast<ResCheckFunctionType>(resolutionCheckFunc);
-            ResolutionPatchHook = safetyhook::create_inline(OriginalResCheckFunction, ResCheckFunctionHook);
+            // Disabled hooking this function because the body relies on hardcoded offsets that crash.
+            // ResolutionPatchHook = safetyhook::create_inline(OriginalResCheckFunction, ResCheckFunctionHook);
         }
 
         // Signature for 4K Native text: "34 ?? 20 4E 61 74 69 76 65"
