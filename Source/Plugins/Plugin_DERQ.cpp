@@ -157,11 +157,17 @@ namespace EnigmaFix
         // "09 00 00 00 00 00 00 00 00 00 00 00 FF 01 00 00 4C 00 ?? 00 01 00 02 00 04 ?? 05 ?? ?? ?? ?? 00 08 00 0E 00 0D ?? ?? ?? ?? 00 12 00 13 00 15 ?? ?? ?? ?? 00 19 00 1B 00 1C ?? 1F 00 21 00 23 00 25 ?? ?? ?? ?? 00 29 00 2A 00 2C ?? 2F 00 31 00 32 00 34 ?? 35 ?? ?? ?? ?? 00 3B 00 3C ?? 3D ?? ?? ?? ?? 00 42 ?? 43 00 ?? ?? 48 00 ?? ?? ?? 00 4A ?? 4B 00 ?? ?? 4E 00 ?? ?? 50 00 51 ?? 52 00 53 ?? 54 00 55 ?? 56 00 57 ?? 58 00 59 ?? 5A 00 5B ?? 5C 00 5D ?? 5E 00 5F ?? 60 00 14 ?? 2B 00 61 00 62 ?? 63 00 64 00 ?? 00 10 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03 02 03 02 00 00 00 00 02 02 02 02 02 02 02 02 00 00 01 01 01 01 01 01 01 01 02 02 02 02 02 02 01 01 01 01 01 01 01 01 01 01 02 02 00 00 02 02 01 01 01 01 02 02 02 02 02 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 01 01 01 00 00 00 00 00 00 00 00 00 00 01 01 03 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 08 00 00 00 3D ?? ?? ?? ?? 4E 01 ?? 34 ?? 01 00 2C ?? 01 00 2B 4E ?? 00 27 4E 01 ?? 24 ?? 01 00 23 4E ?? 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
 
 
-        //if (PlayerSettingsRef.RES.UseCustomRes) {
-            //*hRes4KPtr = PlayerSettingsRef.RES.HorizontalRes;
-            //*vRes4KPtr = PlayerSettingsRef.RES.VerticalRes;
-            //spdlog::info("Patched 4K Option Internal Resolution to : {}x{}", *hRes4KPtr, *vRes4KPtr);
-        //}
+        // Write the custom resolution directly to the game's "4K Native" option variables.
+        // This is safe, crash-free, and doesn't require code-hooks because it only writes
+        // to global data variables on startup.
+        if (PlayerSettingsPDQ.RES.UseCustomRes) {
+            auto* hWinSize4KPtr = reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(baseModule) + 0xF58780);
+            auto* vWinSize4KPtr = reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(baseModule) + 0xF58784);
+            
+            Memory::Write(reinterpret_cast<uintptr_t>(hWinSize4KPtr), PlayerSettingsPDQ.RES.Resolution.x);
+            Memory::Write(reinterpret_cast<uintptr_t>(vWinSize4KPtr), PlayerSettingsPDQ.RES.Resolution.y);
+            spdlog::info("Resolution: Patched 4K Option Internal Resolution variables to: {}x{}", *hWinSize4KPtr, *vWinSize4KPtr);
+        }
     }
 
     void Plugin_DERQ::AspectRatioPatches(HMODULE baseModule)
@@ -218,15 +224,76 @@ namespace EnigmaFix
 
     void Plugin_DERQ::FOVPatches(HMODULE baseModule)
     {
-        static safetyhook::MidHook fovProjectionHook;
+        // Only hook if custom FOV is enabled in config
+        if (!PlayerSettingsPDQ.FOV.UseCustomFOV) {
+            return;
+        }
 
-        // TODO: FOV is currently disabled.
-        // The projection calc hook at 0x6E0BFF is also called for the DOF camera,
-        // causing a blur effect. We need to identify the main view camera `rcx`
-        // vs. the DOF/shadow camera `rcx` before we can safely apply custom FOV here.
-        // The write-site approach ([rcx+4C4]) breaks the battle arena.
-        // Leaving this as a research task until a camera-identity check is found.
-        spdlog::warn("FOV: Custom FOV is currently disabled pending a safe camera ID method.");
+        // 1. Hook the simple getter at 0x1406E145F (file 0x6E085F) to always return the default gameplay FOV.
+        // This ensures the battle arena (and any other geometry logic using it) does not shrink or stretch!
+        // Pattern: F3 0F 10 81 C4 04 00 00 C3
+        auto fovGetterFunc = Memory::PatternScan(baseModule, "F3 0F 10 81 C4 04 00 00 C3");
+        if (fovGetterFunc) {
+            spdlog::info("FOV: Found simple getter signature at: {}", reinterpret_cast<void*>(fovGetterFunc));
+
+            static safetyhook::MidHook fovGetterHook;
+            fovGetterHook = safetyhook::create_mid(fovGetterFunc + 8, [](safetyhook::Context& ctx) {
+                ctx.xmm0.f32[0] = 43.60281754f; // Override returned value to default gameplay FOV
+            });
+            spdlog::info("FOV: Successfully initialized battle arena protection hook.");
+        } else {
+            spdlog::error("FOV: Could not find simple getter signature!");
+        }
+
+        // Shared callback function for both FOV write hooks:
+        auto fovWriteCallback = [](safetyhook::Context& ctx) {
+            auto* base = reinterpret_cast<uint8_t*>(PatchManagerPDQ.BaseModule);
+            auto* cameraManagerPtr = *reinterpret_cast<uintptr_t**>(base + 0x1022050);
+            if (cameraManagerPtr) {
+                auto mainCamera = cameraManagerPtr[8]; // 0x40 offset
+                if (ctx.rcx == mainCamera) {
+                    float originalFOV = ctx.xmm0.f32[0];
+                    
+                    // Only override if the written value is close to the default gameplay FOV (43.0f to 46.0f).
+                    // This retains director-intended FOV values during in-game cutscenes / cinematics!
+                    if (originalFOV >= 43.0f && originalFOV <= 46.0f) {
+                        float targetFOV = static_cast<float>(PlayerSettingsPDQ.FOV.FieldOfView);
+                        
+                        // Adaptive FOV scaling (Vert+) for narrow aspect ratios (like 16:10 or 4:3)
+                        if (PlayerSettingsPDQ.FOV.AdaptiveFOVScaling) {
+                            float currentAspect = PlayerSettingsPDQ.RES.InternalAspectRatio;
+                            targetFOV = FOV::AdjustFOVHorPlusToVertPlus(currentAspect, targetFOV);
+                        }
+                        
+                        ctx.xmm0.f32[0] = targetFOV;
+                    }
+                }
+            }
+        };
+
+        // 2. Hook exploration FOV write site at 0x1406E1F73 (file 0x6E1373)
+        // Pattern: F3 0F 11 81 C4 04 00 00 48 83 C4 28
+        auto fovWriteFunc1 = Memory::PatternScan(baseModule, "F3 0F 11 81 C4 04 00 00 48 83 C4 28");
+        if (fovWriteFunc1) {
+            spdlog::info("FOV: Found exploration write signature at: {}", reinterpret_cast<void*>(fovWriteFunc1));
+            static safetyhook::MidHook fovWriteHook1;
+            fovWriteHook1 = safetyhook::create_mid(fovWriteFunc1, fovWriteCallback);
+            spdlog::info("FOV: Successfully initialized exploration FOV write hook.");
+        } else {
+            spdlog::error("FOV: Could not find exploration write signature!");
+        }
+
+        // 3. Hook battle / cutscene FOV write site at 0x1406E1A6F (file 0x6E0E6F)
+        // Pattern: F3 0F 11 81 C4 04 00 00 C3 CC CC CC CC CC CC CC CC CC CC
+        auto fovWriteFunc2 = Memory::PatternScan(baseModule, "F3 0F 11 81 C4 04 00 00 C3 CC CC CC CC CC CC CC CC CC CC");
+        if (fovWriteFunc2) {
+            spdlog::info("FOV: Found battle/cutscene write signature at: {}", reinterpret_cast<void*>(fovWriteFunc2));
+            static safetyhook::MidHook fovWriteHook2;
+            fovWriteHook2 = safetyhook::create_mid(fovWriteFunc2, fovWriteCallback);
+            spdlog::info("FOV: Successfully initialized battle/cutscene FOV write hook.");
+        } else {
+            spdlog::error("FOV: Could not find battle/cutscene write signature!");
+        }
     }
 
     void Plugin_DERQ::UIPatches(HMODULE baseModule)

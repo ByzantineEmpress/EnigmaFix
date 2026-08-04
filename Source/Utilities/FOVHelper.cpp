@@ -26,7 +26,7 @@ SOFTWARE.
 
 namespace FOV {
     float AdjustFOVHorPlusToVertPlus(float aspectRatio, float horizontalFOV, float aspectRatioThreshold) {
-        spdlog::info("FOV Helper: Window Resized! Changing FOV Scaling...");
+        // spdlog::info("FOV Helper: Window Resized! Changing FOV Scaling...");
 
         if (aspectRatio < aspectRatioThreshold) {
             // For aspect ratios narrower than 16:9, keep the horizontal FOV, expand vertical FOV

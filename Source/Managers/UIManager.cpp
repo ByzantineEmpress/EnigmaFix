@@ -36,6 +36,7 @@ SOFTWARE.
 #include "../Localization/Localization.h"
 #include "../Utilities/UITextureLoader.h"
 #include "../Utilities/DisplayHelper.h"
+#include "../Utilities/MemoryHelper.h"
 // System Libraries
 #include <d3d11.h>
 // Third Party Libraries
@@ -327,7 +328,23 @@ namespace EnigmaFix {
                 break;
             }
         }
-        Combo(LocUI.Strings.combobox_CustomResolution.c_str(), &selectedResolutionOption, resolutionCStrs.data(), static_cast<int>(resolutionCStrs.size()));
+        if (Combo(LocUI.Strings.combobox_CustomResolution.c_str(), &selectedResolutionOption, resolutionCStrs.data(), static_cast<int>(resolutionCStrs.size()))) {
+            if (selectedResolutionOption >= 0 && selectedResolutionOption < resolutions.size()) {
+                SettingsUI.RES.Resolution = resolutions[selectedResolutionOption];
+                
+                // Save updated config
+                ConfigManager::Get().SaveConfig();
+
+                // Update memory variables immediately
+                auto baseModule = GetModuleHandleA("Application.exe");
+                if (baseModule) {
+                    auto* hWinSize4KPtr = reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(baseModule) + 0xF58780);
+                    auto* vWinSize4KPtr = reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(baseModule) + 0xF58784);
+                    Memory::Write(reinterpret_cast<uintptr_t>(hWinSize4KPtr), SettingsUI.RES.Resolution.x);
+                    Memory::Write(reinterpret_cast<uintptr_t>(vWinSize4KPtr), SettingsUI.RES.Resolution.y);
+                }
+            }
+        }
     }
 
     void UIManager::MainMenuOptions()
