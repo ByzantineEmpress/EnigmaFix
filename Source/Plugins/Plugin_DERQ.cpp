@@ -251,6 +251,24 @@ namespace EnigmaFix
             } else {
                 spdlog::error("Skip Intro: Could not find movie string block!");
             }
+
+            // Skip Warning Pages completely by forcing the warning screen config getters to return 0.
+            // This is clean, safe, and avoids the black screen state machine hang because the game
+            // transitions to the title screen when it thinks there are 0 warnings left.
+            auto* scanBytes = reinterpret_cast<uint8_t*>(baseModule);
+            auto dosHeader = reinterpret_cast<PIMAGE_DOS_HEADER>(baseModule);
+            auto ntHeaders = reinterpret_cast<PIMAGE_NT_HEADERS>(scanBytes + dosHeader->e_lfanew);
+            auto sizeOfImage = ntHeaders->OptionalHeader.SizeOfImage;
+
+            static const uint8_t sig[] = { 0x48, 0x89, 0x5C, 0x24, 0x08, 0x55, 0x48, 0x8D, 0x6C, 0x24, 0xA9, 0x48, 0x81, 0xEC, 0xA0, 0x00, 0x00, 0x00 };
+            int patchCount = 0;
+            for (size_t i = 0; i < sizeOfImage - sizeof(sig); ++i) {
+                if (memcmp(&scanBytes[i], sig, sizeof(sig)) == 0) {
+                    Memory::PatchBytes(reinterpret_cast<uintptr_t>(&scanBytes[i]), "\x31\xC0\xC3", 3);
+                    patchCount++;
+                }
+            }
+            spdlog::info("Skip Warnings: Patched {} warning screen getters.", patchCount);
         }
     }
 
