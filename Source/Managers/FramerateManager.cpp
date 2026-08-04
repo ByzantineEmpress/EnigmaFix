@@ -50,10 +50,26 @@ namespace EnigmaFix
 
     int FramerateManager::Limit()
     {
+        // Dynamically update targetFrameTime so UI changes take effect immediately
+        if (PlayerSettingsFrm.SYNC.MaxFPS > 0) {
+            targetFrameTime = 1.0 / PlayerSettingsFrm.SYNC.MaxFPS;
+        } else {
+            targetFrameTime = 0.0; // Uncapped
+        }
+
+        if (frequency.QuadPart == 0) {
+            QueryPerformanceFrequency(&frequency);
+        }
+
+        static LARGE_INTEGER lastLimitTime = {0};
+        if (lastLimitTime.QuadPart == 0) {
+            QueryPerformanceCounter(&lastLimitTime);
+        }
+
         LARGE_INTEGER currentTime;
         QueryPerformanceCounter(&currentTime);
 
-        double elapsedTime = static_cast<double>(currentTime.QuadPart - lastTime) / frequency.QuadPart;
+        double elapsedTime = static_cast<double>(currentTime.QuadPart - lastLimitTime.QuadPart) / frequency.QuadPart;
         double remainingTime = targetFrameTime - elapsedTime;
 
         int totalSleepTime = 0; // Store total sleep time in milliseconds
@@ -61,21 +77,24 @@ namespace EnigmaFix
         if (remainingTime > 0)
         {
             int sleepTime = static_cast<int>(remainingTime * 1000.0); // Convert to milliseconds
-            if (sleepTime > 0)
+            // We want to avoid sleeping the full duration to leave room for the spin-wait precision.
+            if (sleepTime > 1)
             {
-                Sleep(sleepTime);
-                totalSleepTime = sleepTime;
+                Sleep(sleepTime - 1);
+                totalSleepTime = sleepTime - 1;
             }
 
             // Fine-tune timing with a spin-wait
             LARGE_INTEGER spinTime;
             do {
                 QueryPerformanceCounter(&spinTime);
-            } while (static_cast<double>(spinTime.QuadPart - lastTime) / frequency.QuadPart < targetFrameTime);
+            } while (static_cast<double>(spinTime.QuadPart - lastLimitTime.QuadPart) / frequency.QuadPart < targetFrameTime);
+            
+            currentTime = spinTime;
         }
 
-        // Update lastTime for the next frame
-        lastTime = currentTime.QuadPart;
+        // Update lastLimitTime for the next frame
+        lastLimitTime = currentTime;
 
         return totalSleepTime;
     }

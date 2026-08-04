@@ -56,7 +56,15 @@ namespace Util
         if (!hwnd)
             return 1.0f; // Default DPI scale
 
-        const auto dpi = static_cast<float>(GetDpiForWindow(hwnd));
-        return dpi / 96.0f; // 96 DPI is the default scale (1.0)
+        typedef UINT(WINAPI* GetDpiForWindowFn)(HWND);
+        static auto pGetDpiForWindow = reinterpret_cast<GetDpiForWindowFn>(
+            GetProcAddress(GetModuleHandleA("user32.dll"), "GetDpiForWindow"));
+
+        if (pGetDpiForWindow) {
+            const auto dpi = static_cast<float>(pGetDpiForWindow(hwnd));
+            return dpi / 96.0f;
+        }
+
+        return 1.0f; // Default DPI scale
     }
 }

@@ -27,6 +27,7 @@ SOFTWARE.
 // System Libraries
 #include <iostream>
 #include <fstream>
+#include <regex>
 #include <filesystem>
 // Third Party Libraries
 #include <inipp.h>
@@ -51,55 +52,78 @@ namespace EnigmaFix {
     }
 
 
-    void ConfigManager::SaveConfig() { // TODO: Find a way of writing configs with IniPP.
+    void ConfigManager::SaveConfig() { 
         if (AlreadyReadConfig) {
             spdlog::info("Saving Config...");
+
+            std::ifstream is("Config.ini");
+            std::string content((std::istreambuf_iterator<char>(is)), std::istreambuf_iterator<char>());
+            is.close();
+
+            auto replace = [&](const std::string& key, const std::string& value) {
+                std::regex re("(^|\\n)([ \\t]*)" + key + "[ \\t]*=[ \\t]*([^\\n\\r]*)", std::regex_constants::icase);
+                content = std::regex_replace(content, re, "$1$2" + key + " = " + value);
+            };
+
+            auto btos = [](bool b) { return b ? "true" : "false"; };
+
             // Resolution Settings
-            //ini.WriteBoolean("Resolution",  "UseCustomResolution",       PlayerSettingsConf.RES.UseCustomRes,      0);
-            //ini.WriteInteger("Resolution",  "HorizontalResolution",      PlayerSettingsConf.RES.HorizontalRes,     0);
-            //ini.WriteInteger("Resolution",  "VerticalResolution",        PlayerSettingsConf.RES.VerticalRes,       0);
-            //ini.WriteBoolean("Resolution",  "UseResolutionScale",        PlayerSettingsConf.RES.UseCustomResScale, 0);
-            //ini.WriteInteger("Resolution",  "ResolutionScalePercentage", PlayerSettingsConf.RES.CustomResScale,    0);
+            replace("UseCustomResolution", btos(PlayerSettingsConf.RES.UseCustomRes));
+            replace("HorizontalResolution", std::to_string(PlayerSettingsConf.RES.Resolution.x));
+            replace("VerticalResolution", std::to_string(PlayerSettingsConf.RES.Resolution.y));
+            replace("UseResolutionScale", btos(PlayerSettingsConf.RES.UseCustomResScale));
+            replace("ResolutionScalePercentage", std::to_string(PlayerSettingsConf.RES.CustomResScale));
+
             // FOV Settings
-            //ini.WriteBoolean("FieldOfView", "UseCustomFOV",              PlayerSettingsConf.FOV.UseCustomFOV,      0);
-            //ini.WriteBoolean("FieldOfView", "UseVertPlusScaling",        PlayerSettingsConf.FOV.VertPlusScaling,   0);
-            //ini.WriteInteger("FieldOfView", "FieldOfView",               PlayerSettingsConf.FOV.FieldOfView,       0);
+            replace("UseCustomFOV", btos(PlayerSettingsConf.FOV.UseCustomFOV));
+            replace("FieldOfView", std::to_string(PlayerSettingsConf.FOV.FieldOfView));
+            replace("UseAdaptiveFOVScaling", btos(PlayerSettingsConf.FOV.AdaptiveFOVScaling));
+
             // Sync and Framerate Settings
-            //ini.WriteBoolean("Framerate",   "VSync",                     PlayerSettingsConf.SYNC.VSync,            0);
-            //ini.WriteInteger("Framerate",   "SyncInterval",              PlayerSettingsConf.SYNC.SyncInterval,     0);
-            //ini.WriteInteger("Framerate",   "MaxFPS",                    PlayerSettingsConf.SYNC.MaxFPS,           0);
+            replace("MaxFPS", std::to_string(PlayerSettingsConf.SYNC.MaxFPS));
+            replace("VSync", btos(PlayerSettingsConf.SYNC.VSync));
+            replace("SyncInterval", std::to_string(PlayerSettingsConf.SYNC.SyncInterval));
+
             // Rendering Settings
-            //ini.WriteBoolean("Rendering",   "CameraDistortion",          PlayerSettingsConf.RS.CameraDistortion,   0);
-            //ini.WriteBoolean("Rendering",   "EdgeRendering",             PlayerSettingsConf.RS.EdgeRendering,      0);
-            //ini.WriteBoolean("Rendering",   "ColorCorrection",           PlayerSettingsConf.RS.ColorCorrection,    0);
-            //ini.WriteBoolean("Rendering",   "DepthOfField",              PlayerSettingsConf.RS.DepthOfField,       0);
-            //ini.WriteBoolean("Rendering",   "Fog",                       PlayerSettingsConf.RS.Fog,                0);
-            //ini.WriteBoolean("Rendering",   "Foliage",                   PlayerSettingsConf.RS.FoliageRendering,   0);
-            //ini.WriteBoolean("Rendering",   "Bloom",                     PlayerSettingsConf.RS.Bloom,              0);
-            //ini.WriteBoolean("Rendering",   "IBL",                       PlayerSettingsConf.RS.IBL,                0);
-            //ini.WriteBoolean("Rendering",   "LensFlare",                 PlayerSettingsConf.RS.LensFlare,          0);
-            //ini.WriteBoolean("Rendering",   "MotionBlur",                PlayerSettingsConf.RS.MotionBlur,         0);
-            //ini.WriteInteger("Rendering",   "NotionBlurPreset",          PlayerSettingsConf.RS.MotionBlurPreset,   0);
-            //ini.WriteBoolean("Rendering",   "RLRLighting",               PlayerSettingsConf.RS.RLRLighting,        0);
-            //ini.WriteBoolean("Rendering",   "Shadows",                   PlayerSettingsConf.RS.Shadows,            0);
-            //// Add Shadow Quality here
-            //ini.WriteBoolean("Rendering",   "SSAO",                      PlayerSettingsConf.RS.SSAO,               0);
-            //// Add SSAO Quality here
-            //ini.WriteBoolean("Rendering",   "SSR",                       PlayerSettingsConf.RS.SSR,                0);
-            //// Add SSR Quality here
-            //ini.WriteBoolean("Rendering",   "TAA",                       PlayerSettingsConf.RS.TAA,                0);
-            //ini.WriteBoolean("Rendering",   "Tonemapping",               PlayerSettingsConf.RS.Tonemapping,        0);
-            //ini.WriteBoolean("Rendering",   "Vignette",                  PlayerSettingsConf.RS.Vignette,           0);
+            replace("CameraDistortion", btos(PlayerSettingsConf.RS.CameraDistortion));
+            replace("EdgeRendering", btos(PlayerSettingsConf.RS.EdgeRendering));
+            replace("ColorCorrection", btos(PlayerSettingsConf.RS.ColorCorrection));
+            replace("DepthOfField", btos(PlayerSettingsConf.RS.DepthOfField));
+            replace("Fog", btos(PlayerSettingsConf.RS.Fog));
+            replace("Foliage", btos(PlayerSettingsConf.RS.FoliageRendering));
+            replace("Bloom", btos(PlayerSettingsConf.RS.Bloom));
+            replace("IBL", btos(PlayerSettingsConf.RS.IBL));
+            replace("LensFlare", btos(PlayerSettingsConf.RS.LensFlare));
+            replace("MotionBlur", btos(PlayerSettingsConf.RS.MotionBlur));
+            replace("MotionBlurPreset", std::to_string(PlayerSettingsConf.RS.MotionBlurPreset));
+            replace("RLRLighting", btos(PlayerSettingsConf.RS.RLRLighting));
+            replace("Shadows", btos(PlayerSettingsConf.RS.Shadows));
+            replace("ShadowResolution", std::to_string(PlayerSettingsConf.RS.ShadowRes));
+            replace("SSAO", btos(PlayerSettingsConf.RS.SSAO));
+            replace("SSR", btos(PlayerSettingsConf.RS.SSR));
+            replace("TAA", btos(PlayerSettingsConf.RS.TAA));
+            replace("Tonemapping", btos(PlayerSettingsConf.RS.Tonemapping));
+            replace("Vignette", btos(PlayerSettingsConf.RS.Vignette));
+
             // Input Settings
-            //ini.WriteBoolean("Input",       "KBMPrompts",                PlayerSettingsConf.IS.KBMPrompts,         0);
-            //ini.WriteBoolean("Input",       "DisableSteamInput",         PlayerSettingsConf.IS.DisableSteamInput,  0);
-            //ini.WriteInteger("Input",       "InputType",                   PlayerSettingsConf.IS.InputDeviceType,    0);
+            replace("KBMPrompts", btos(PlayerSettingsConf.IS.KBMPrompts));
+            replace("DisableSteamInput", btos(PlayerSettingsConf.IS.DisableSteamInput));
+            const char* InputOptions[]{ "Auto", "Xbox", "PlayStation", "Switch" };
+            int inputIdx = PlayerSettingsConf.IS.InputDeviceType;
+            if (inputIdx >= 0 && inputIdx < 4) {
+                replace("InputType", InputOptions[inputIdx]);
+            }
+
             // Misc Settings
-            //ini.WriteBoolean("Misc",        "SkipOpeningVideos",         PlayerSettingsConf.MS.SkipOpeningVideos,  0);
-            //ini.WriteBoolean("Misc",        "CameraTweaks",              PlayerSettingsConf.MS.CameraTweaks,       0);
-            //ini.WriteBoolean("Misc",        "EnableConsoleLog",          PlayerSettingsConf.MS.EnableConsoleLog,   0);
+            replace("SkipOpeningVideos", btos(PlayerSettingsConf.MS.SkipOpeningVideos));
+            replace("CameraTweaks", btos(PlayerSettingsConf.MS.CameraTweaks));
+            replace("EnableConsoleLog", btos(PlayerSettingsConf.MS.EnableConsoleLog));
+
             // Launcher Settings
-            //ini.WriteBoolean("Launcher",    "IgnoreUpdates",             PlayerSettingsConf.LS.IgnoreUpdates,      0);
+            replace("IgnoreUpdates", btos(PlayerSettingsConf.LS.IgnoreUpdates));
+
+            std::ofstream os("Config.ini");
+            os << content;
         }
     }
 

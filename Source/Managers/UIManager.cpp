@@ -374,8 +374,10 @@ namespace EnigmaFix {
             }
             else { SettingsUI.SYNC.SyncInterval = 0; }
             InputInt(LocUI.Strings.sliderInt_FramerateCap.c_str(), &SettingsUI.SYNC.MaxFPS, 1, 100, 0);
-            SettingsUI.SYNC.MaxFPS = ImClamp(SettingsUI.SYNC.MaxFPS, 0, std::numeric_limits<int>::max()); // Clamp to prevent anything below 0 from being set.
+            SettingsUI.SYNC.MaxFPS = ImClamp(SettingsUI.SYNC.MaxFPS, 0, 63); // Game logic tick is 63fps. Higher values speed up 2D elements and some game logic.
             SameLine(0.0, -1.0); HelpMarker(LocUI.Strings.helpmarker_FramerateCap.c_str());
+            constexpr auto framerateWarn = ImVec4(1.0f, 0.85f, 0.3f, 1.0f);
+            TextColored(framerateWarn, "Max: 63 FPS (game logic is frame-rate dependent above this)");
             // Adds the Framerate and Frametime counter and changes the color of the text based on if the framerate is < 60FPS (red), or >= 60FPS (green).
             // Since I can't put this in a Switch/Case statement apparently, the YandereDev-tier "IF/ELSE" statement shenanigans will have to do for now.
             if (GetIO().Framerate >= 60.0f) {
@@ -526,7 +528,8 @@ namespace EnigmaFix {
 
     void UIManager::ShowMainMenu(bool* p_open)
     {
-        if (Begin(LocUI.Strings.gameName.c_str(), p_open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
+        ImGui::SetNextWindowSize(ImVec2(600, 700), ImGuiCond_FirstUseEver);
+        if (Begin(LocUI.Strings.gameName.c_str(), p_open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse)) {
             // Creates the main menu UI and enables our custom theming.
             ActivateTheme();
             // Spawns the main menu logic.

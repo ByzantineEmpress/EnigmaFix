@@ -25,6 +25,7 @@ SOFTWARE.
 #include "../Settings/PlayerSettings.h"
 #include "../Utilities/MemoryHelper.h"
 #include "../Managers/PatchManager.h"
+#include "../Utilities/FOVHelper.h"
 
 // Third Party Libraries
 #include <codecvt>
@@ -217,12 +218,40 @@ namespace EnigmaFix
 
     void Plugin_DERQ::FOVPatches(HMODULE baseModule)
     {
+        static safetyhook::MidHook fovProjectionHook;
 
+        // TODO: FOV is currently disabled.
+        // The projection calc hook at 0x6E0BFF is also called for the DOF camera,
+        // causing a blur effect. We need to identify the main view camera `rcx`
+        // vs. the DOF/shadow camera `rcx` before we can safely apply custom FOV here.
+        // The write-site approach ([rcx+4C4]) breaks the battle arena.
+        // Leaving this as a research task until a camera-identity check is found.
+        spdlog::warn("FOV: Custom FOV is currently disabled pending a safe camera ID method.");
     }
 
     void Plugin_DERQ::UIPatches(HMODULE baseModule)
     {
-
+        // Skip Opening Videos
+        // The game stores intro movie filenames as C-strings in .rdata.
+        // Scanning for the first filename ("game_op.usm") and zeroing the following
+        // contiguous block of filenames causes the video player to find no valid
+        // path and skip each video silently.
+        if (PlayerSettingsPDQ.MS.SkipOpeningVideos) {
+            // Anchor: short relative path "game_op.usm" immediately before the full paths
+            if (auto movieStrings = Memory::PatternScan(baseModule,
+                "67 61 6D 65 5F 6F 70 2E 75 73 6D 00 2E 2E 2F 2E 2E 2F 72 65 73 6F 75 72 63 65")) {
+                spdlog::info("Skip Intro: Found movie string block at: {}", reinterpret_cast<void*>(movieStrings));
+                // Zero out movie filenames only (161 bytes):
+                //   game_op.usm (12) + logo_if.usm (48) + logo_ch.usm (48) + logo_silicon.usm (53)
+                // NOTE: SYSTEM/WARN/* strings must NOT be zeroed — they are UI screen identifiers,
+                // not file paths. Zeroing them causes a black screen hang.
+                static const char zeros[161] = {};
+                Memory::PatchBytes(reinterpret_cast<uintptr_t>(movieStrings), zeros, 161);
+                spdlog::info("Skip Intro: Movie filenames zeroed — videos will be skipped.");
+            } else {
+                spdlog::error("Skip Intro: Could not find movie string block!");
+            }
+        }
     }
 
     //void __attribute__((naked)) FramerateUnlockHook() {
@@ -234,35 +263,27 @@ namespace EnigmaFix
 
     void Plugin_DERQ::FrameratePatches(HMODULE baseModule)
     {
-        safetyhook::InlineHook framerateHook;
-        using FramerateLimiterFunc = int(__stdcall*)(void* gameInstance);
-        FramerateLimiterFunc originalFramerateLimiter = nullptr;
-
-        // Delta Time Address Signature: "89 88 ?? ?? ?? ?? 80 3F"
+        static safetyhook::MidHook framerateMidHook;
 
         if (auto framerateCapFunc = Memory::PatternScan(baseModule, "8B 80 ?? ?? ?? ?? 89 44 ?? ?? 83 7C 24 44 ?? 74 ?? 83 7C 24 44")) {
             spdlog::info("Found Framerate Limiter Signature at: {}", reinterpret_cast<void*>(framerateCapFunc));
-            // Hook the function
-            //framerateHook = safetyhook::create_inline(framerateCapFunc, FramerateManagerPDQ.Limit());
-            //originalFramerateLimiter = framerateHook.original<FramerateLimiterFunc>();
+            
+            // Hook right after the game reads its internal frame cap setting into eax.
+            // We sleep the thread for our custom cap, and then overwrite eax with 999
+            // so that the game's default switch statement falls through and bypasses the internal cap.
+            framerateMidHook = safetyhook::create_mid(framerateCapFunc + 6, [](safetyhook::Context& ctx) {
+                if (PlayerSettingsPDQ.SYNC.MaxFPS > 0) {
+                    FramerateManagerPDQ.Limit();
+                }
 
-            // TODO: Patch out the framerate limiter call, and replace it with our own framelimiter.
-            // This seems to be the call: "8B 80 A0 00 00 00" ("Application.exe"+E88FA - mov eax,[rax+000000A0]) (8B 80 A0 00 00 00 are the bytes)
-
-            // Address of signature = Application.exe + 0x000E8962
-            // The modification after the framelimiter is called should jump to "F3 0F ?? ?? ?? ?? F3 0F ?? ?? ?? ?? F3 0F ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? ?? 83 B8 A4 00 00 00" (Application.exe+E8962 - movss xmm0,[rsp+40])
-            // The actual bytes of the jmp location should be "Application.exe+E8962 - F3 0F 10 44 24 40"
+                // Set rax=0 so the engine takes the "no-sleep" branch (xorps xmm0,xmm0),
+                // handing all frame pacing control to FramerateManager::Limit() above.
+                // Using 999 bypassed the engine's sleep entirely AND decoupled its internal
+                // frame budget accounting, causing game logic to run at full speed.
+                // rax=0 is the engine's own uncapped mode — safe to use as our base.
+                ctx.rax = 0;
+            });
         }
-
-        // For now, disable the framelimiter.
-        NOPPattern(baseModule, "8B 80 ?? ?? ?? ?? 89 44 ?? ?? 83 7C 24 44 ?? 74 ?? 83 7C 24 44", 6, "Framerate Limiter");
-
-
-        //safetyhook::create_inline()
-
-        //asm volatile (
-            //"nop"
-        //);
     }
 
     void Plugin_DERQ::SchedulerPatches(HMODULE baseModule)

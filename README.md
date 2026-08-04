@@ -1,4 +1,20 @@
-# EnigmaFix
+# EnigmaFix (GOG Version - Early Work-in-Progress Fork)
+
+> [!WARNING]
+> This is a very early, experimental, work-in-progress fork of EnigmaFix specifically modified to support the **GOG Galaxy / GOG version of *Death end re;Quest***. 
+> 
+> Many default Steam-version offset patches and signatures are not fully adapted yet, and some features (like FOV customization) are currently paused/disabled pending further research of the camera structures. Use with caution.
+
+### Modified Features / Fixes in this Fork:
+* **Intro Video Skip:** Adapted to GOG addresses by scanning and zeroing the intro movie path block (`game_op.usm`, `logo_if.usm`, etc.).
+* **Framerate Manager / Unlocker:** Adapted to GOG signature address using the native sleep-skip bypass method (`rax=0` replacement). Added custom framerate limiter logic mapping to game timing via `FramerateManager`.
+* **Config Manager:** Adapted to correctly parse, load, and save settings on the GOG version.
+* **UI Scroll Capability:** Enabled in-game UI scrollbars to prevent options from flowing off-screen at lower resolutions or when options are added.
+
+---
+
+# Original EnigmaFix README
+
 ![Logo](Resources/EnigmaFix_Logo.png)
 
 ### A mod that aims to improve several aspects of the PC versions for games in the Death end re;Quest series.*
