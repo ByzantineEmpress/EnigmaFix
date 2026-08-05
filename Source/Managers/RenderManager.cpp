@@ -38,6 +38,9 @@ SOFTWARE.
 #include "imgui.h"
 #include "backends/imgui_impl_win32.h"
 #include "backends/imgui_impl_dx11.h"
+#include <XInput.h>
+#include <intrin.h>
+#include <safetyhook.hpp>
 
 // Variables
 static std::mutex g_cbMutex;
@@ -70,19 +73,138 @@ auto& UIManagerRenMan = EnigmaFix::UIManager::Get();
 // Singleton Instance
 EnigmaFix::RenderManager EnigmaFix::RenderManager::rm_Instance; // Seemingly need this declared in RenderManager.cpp so a bunch of linker errors don't happen.
 
+#ifdef _MSC_VER
+#define GET_RETURN_ADDRESS() _ReturnAddress()
+#else
+#define GET_RETURN_ADDRESS() __builtin_return_address(0)
+#endif
 
+// Function pointers and hooks for controller input block
+static safetyhook::InlineHook xinputGetStateHook;
+
+static HMODULE GetOurModuleHandle() {
+    HMODULE hMod = nullptr;
+    GetModuleHandleExA(
+        GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+        reinterpret_cast<LPCSTR>(&GetOurModuleHandle),
+        &hMod
+    );
+    return hMod;
+}
+
+static bool IsCallFromOurModule(void* returnAddress) {
+    HMODULE ourModule = GetOurModuleHandle();
+    if (!ourModule) return false;
+    
+    MEMORY_BASIC_INFORMATION mbi;
+    if (VirtualQuery(returnAddress, &mbi, sizeof(mbi))) {
+        return mbi.AllocationBase == ourModule;
+    }
+    return false;
+}
+
+static DWORD WINAPI hooked_XInputGetState(DWORD dwUserIndex, XINPUT_STATE* pState) {
+    if (!xinputGetStateHook) {
+        return ERROR_DEVICE_NOT_CONNECTED;
+    }
+    
+    DWORD result = xinputGetStateHook.call<DWORD>(dwUserIndex, pState);
+    
+    if (result == ERROR_SUCCESS && PlayerSettingsRm.ShowEFUI && pState) {
+        // If the call is NOT from our module (i.e. it is from the game), block it!
+        if (!IsCallFromOurModule(GET_RETURN_ADDRESS())) {
+            pState->Gamepad.wButtons = 0;
+            pState->Gamepad.bLeftTrigger = 0;
+            pState->Gamepad.bRightTrigger = 0;
+            pState->Gamepad.sThumbLX = 0;
+            pState->Gamepad.sThumbLY = 0;
+            pState->Gamepad.sThumbRX = 0;
+            pState->Gamepad.sThumbRY = 0;
+        }
+    }
+    return result;
+}
+
+static void InitXInputHooks() {
+    // Try to hook XInputGetState in XINPUT9_1_0.dll first since that's what the game imports
+    HMODULE hXInput = GetModuleHandleA("XINPUT9_1_0.dll");
+    if (!hXInput) hXInput = LoadLibraryA("XINPUT9_1_0.dll");
+    
+    // Check other common versions as fallback
+    if (!hXInput) hXInput = GetModuleHandleA("xinput1_4.dll");
+    if (!hXInput) hXInput = GetModuleHandleA("xinput1_3.dll");
+    
+    if (hXInput) {
+        auto pfnGetState = GetProcAddress(hXInput, "XInputGetState");
+        if (pfnGetState) {
+            xinputGetStateHook = safetyhook::create_inline(reinterpret_cast<void*>(pfnGetState), reinterpret_cast<void*>(hooked_XInputGetState));
+            spdlog::info("UI: Hooked XInputGetState successfully.");
+        } else {
+            spdlog::error("UI: Could not find XInputGetState export.");
+        }
+    } else {
+        spdlog::error("UI: Could not load or find XInput DLL.");
+    }
+}
+static void UpdateImGuiGamepadInputManual() {
+    ImGuiIO& io = ImGui::GetIO();
+    
+    XINPUT_STATE xinput_state;
+    ZeroMemory(&xinput_state, sizeof(XINPUT_STATE));
+    
+    if (!xinputGetStateHook || xinputGetStateHook.call<DWORD>(0, &xinput_state) != ERROR_SUCCESS) {
+        return;
+    }
+    
+    // Set BackendFlag to indicate we have a gamepad
+    io.BackendFlags |= ImGuiBackendFlags_HasGamepad;
+
+    #define IM_SATURATE(V)                      (V < 0.0f ? 0.0f : V > 1.0f ? 1.0f : V)
+    #define MAP_BUTTON(KEY_NO, BUTTON_ENUM)     { io.AddKeyEvent(KEY_NO, (xinput_state.Gamepad.wButtons & BUTTON_ENUM) != 0); }
+    #define MAP_ANALOG(KEY_NO, VALUE, V0, V1)   { float vn = (float)(VALUE - V0) / (float)(V1 - V0); io.AddKeyAnalogEvent(KEY_NO, vn > 0.10f, IM_SATURATE(vn)); }
+    
+    MAP_BUTTON(ImGuiKey_GamepadStart,           XINPUT_GAMEPAD_START);
+    MAP_BUTTON(ImGuiKey_GamepadBack,            XINPUT_GAMEPAD_BACK);
+    MAP_BUTTON(ImGuiKey_GamepadFaceLeft,        XINPUT_GAMEPAD_X);
+    MAP_BUTTON(ImGuiKey_GamepadFaceRight,       XINPUT_GAMEPAD_B);
+    MAP_BUTTON(ImGuiKey_GamepadFaceUp,          XINPUT_GAMEPAD_Y);
+    MAP_BUTTON(ImGuiKey_GamepadFaceDown,        XINPUT_GAMEPAD_A);
+    MAP_BUTTON(ImGuiKey_GamepadDpadLeft,        XINPUT_GAMEPAD_DPAD_LEFT);
+    MAP_BUTTON(ImGuiKey_GamepadDpadRight,       XINPUT_GAMEPAD_DPAD_RIGHT);
+    MAP_BUTTON(ImGuiKey_GamepadDpadUp,          XINPUT_GAMEPAD_DPAD_UP);
+    MAP_BUTTON(ImGuiKey_GamepadDpadDown,        XINPUT_GAMEPAD_DPAD_DOWN);
+    MAP_BUTTON(ImGuiKey_GamepadL1,              XINPUT_GAMEPAD_LEFT_SHOULDER);
+    MAP_BUTTON(ImGuiKey_GamepadR1,              XINPUT_GAMEPAD_RIGHT_SHOULDER);
+    MAP_ANALOG(ImGuiKey_GamepadL2,              xinput_state.Gamepad.bLeftTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD, 255);
+    MAP_ANALOG(ImGuiKey_GamepadR2,              xinput_state.Gamepad.bRightTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD, 255);
+    MAP_BUTTON(ImGuiKey_GamepadL3,              XINPUT_GAMEPAD_LEFT_THUMB);
+    MAP_BUTTON(ImGuiKey_GamepadR3,              XINPUT_GAMEPAD_RIGHT_THUMB);
+    MAP_ANALOG(ImGuiKey_GamepadLStickLeft,      xinput_state.Gamepad.sThumbLX, -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE, -32768);
+    MAP_ANALOG(ImGuiKey_GamepadLStickRight,     xinput_state.Gamepad.sThumbLX, +XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE, +32767);
+    MAP_ANALOG(ImGuiKey_GamepadLStickUp,        xinput_state.Gamepad.sThumbLY, +XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE, +32767);
+    MAP_ANALOG(ImGuiKey_GamepadLStickDown,      xinput_state.Gamepad.sThumbLY, -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE, -32768);
+    MAP_ANALOG(ImGuiKey_GamepadRStickLeft,      xinput_state.Gamepad.sThumbRX, -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE, -32768);
+    MAP_ANALOG(ImGuiKey_GamepadRStickRight,     xinput_state.Gamepad.sThumbRX, +XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE, +32767);
+    MAP_ANALOG(ImGuiKey_GamepadRStickUp,        xinput_state.Gamepad.sThumbRY, +XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE, +32767);
+    MAP_ANALOG(ImGuiKey_GamepadRStickDown,      xinput_state.Gamepad.sThumbRY, -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE, -32768);
+    
+    #undef MAP_BUTTON
+    #undef MAP_ANALOG
+}
 
 void InitImGui() // Initializes ImGui, alongside the needed fonts.
 {
     CreateContext();
     ImGuiIO& io = GetIO();
-    // TODO: Figure out how to disable gamepad input to the game when the interface is open, and also make sure gamepad input is consistent.
-    // TODO: Find a way to add a gamepad hotkey to open the menu.
+    // Enable gamepad navigation support
     io.ConfigFlags = ImGuiConfigFlags_NoMouseCursorChange | ImGuiConfigFlags_NavEnableGamepad | ImGuiConfigFlags_NavEnableKeyboard;
     LocalizationRm.InitFont(PlayerSettingsRm.INS.dpiScale / 100.0f * PlayerSettingsRm.INS.dpiScaleMultiplier);
 
     ImGui_ImplWin32_Init(window);
     ImGui_ImplDX11_Init(pDevice, pContext);
+    
+    // Initialize controller input intercept hooks
+    InitXInputHooks();
 }
 
 // TODO: Figure out why this isn't disabling input from gameplay.
@@ -640,6 +762,22 @@ namespace EnigmaFix {
             else { throw std::runtime_error("Failed to get swapchain device."); }
         }
 
+        // Poll gamepad combination (L3 + R3 clicks) to toggle menu
+        if (xinputGetStateHook) {
+            XINPUT_STATE state;
+            ZeroMemory(&state, sizeof(XINPUT_STATE));
+            if (xinputGetStateHook.call<DWORD>(0, &state) == ERROR_SUCCESS) {
+                bool isPressed = (state.Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_THUMB) && 
+                                 (state.Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_THUMB);
+                static bool wasPressed = false;
+                if (isPressed && !wasPressed) {
+                    PlayerSettingsRm.ShowEFUI = !PlayerSettingsRm.ShowEFUI;
+                    spdlog::info("UI: Gamepad toggled ShowEFUI via L3+R3: {}", PlayerSettingsRm.ShowEFUI);
+                }
+                wasPressed = isPressed;
+            }
+        }
+
         // TODO: Implement developer console and find a way to pipe SpdLog and standard logging to it.
         PlayerSettingsRm.ShowUI = PlayerSettingsRm.ShowEFUI || PlayerSettingsRm.ShowDevConsole; // Checks if either EFUI or the dev console are enabled, and if so, enable the showUI flag.
 
@@ -648,6 +786,7 @@ namespace EnigmaFix {
             // Creates a new ImGui frame.
             ImGui_ImplDX11_NewFrame();
             ImGui_ImplWin32_NewFrame();
+            UpdateImGuiGamepadInputManual();
             NewFrame();
             // Start up the ImGui UI for EnigmaFix.
             UIManagerRenMan.Start(pDevice);

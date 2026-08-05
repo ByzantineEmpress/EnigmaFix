@@ -6,6 +6,7 @@
 ### Modified Features / Fixes in this Fork:
 * **Custom FOV:** Fully functional on GOG! Features a protective bypass that automatically ignores director cutscenes/dialogues to keep intended cinematic layouts intact, and intercepts the simple FOV getter to ensure battle arenas do not shrink or distort.
 * **Custom Resolution Dropdown:** Fully functional! The ImGui overlay resolution dropdown now writes back to config, saves immediately, and patches GOG static resolution variables in memory. Choosing the resolution option slot in-game applies the new layout.
+* **UI Gamepad Support & Input Isolation:** Fully functional! The overlay UI can be toggled using both thumbstick clicks simultaneously (**L3 + R3**), navigated natively with the controller D-Pad/sticks/buttons, and game controller input is automatically blocked while the menu is open (via return-address-filtered `XInputGetState` hook).
 * **Intro Video Skip:** Adapted to GOG addresses by scanning and zeroing the intro movie path block (`game_op.usm`, `logo_if.usm`, etc.).
 * **Framerate Manager / Unlocker:** Adapted to GOG signature address using the native sleep-skip bypass method (`rax=0` replacement). Added custom framerate limiter logic mapping to game timing via `FramerateManager`.
 * **Config Manager:** Adapted to correctly parse, load, and save settings on the GOG version.
