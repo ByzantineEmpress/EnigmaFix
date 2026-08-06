@@ -755,8 +755,10 @@ namespace EnigmaFix {
                     pBackBuffer->Release();
                 }
                 else { throw std::runtime_error("Failed to get swapchain back buffer."); } // Throw a standard C++ exception with an error message.
-                oWndProc = reinterpret_cast<WNDPROC>(SetWindowLongPtr(window, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(WndProc)));
-                InitImGui();
+                LONG_PTR oldWndProc = GetWindowLongPtr(window, GWLP_WNDPROC);
+oWndProc = reinterpret_cast<WNDPROC>(oldWndProc);
+SetWindowLongPtr(window, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(WndProc));
+                    InitImGui();
                 InitHook = true;
             }
             else { throw std::runtime_error("Failed to get swapchain device."); }

@@ -14,10 +14,7 @@ copies or substantial portions of the Software.
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 **/
 
 // Internal Functionality
@@ -51,7 +48,7 @@ namespace EnigmaFix
 
         // Constructor that takes offsets and calculates addresses dynamically
         ResolutionPtr(intptr_t xOffset, intptr_t yOffset) {
-            intptr_t baseModule = reinterpret_cast<intptr_t>(PatchManagerPDQ.BaseModule);
+            uintptr_t baseModule = reinterpret_cast<uintptr_t>(PatchManagerPDQ.BaseModule);
             X = reinterpret_cast<int*>(baseModule + xOffset);
             Y = reinterpret_cast<int*>(baseModule + yOffset);
         }
@@ -70,7 +67,6 @@ namespace EnigmaFix
         { 0xF58768, 0xF5876C },  // 1920x1080 (9)
         { 0xF58770, 0xF58774 },  // 2560x1440 (10)
         { 0xF58778, 0xF5877C },  // 3840x2160 (11)
-        //{ 0xF58780, 0xF58784 },        // 4K Native (12) (This one won't be used because we are overriding that with our custom resolution).
     };
 
     void NOPPattern(HMODULE baseModule, const std::string& pattern, size_t nopsCount, const std::string& patternName)
@@ -99,7 +95,7 @@ namespace EnigmaFix
     void Plugin_DERQ::ResolutionPatches(HMODULE baseModule)
     {
         // TODO: Find a good place to put this check inside of the game code, just before the resolution change occurs.
-        if (auto resolutionCheckFunc = Memory::PatternScan(baseModule, "48 89 ?? ?? ?? 48 89 ?? ?? ?? 57 48 83 EC ?? 48 8B ?? ?? ?? ?? ?? 48 33 ?? 48 89 ?? ?? ?? 41 8B ?? 8B EA")) {
+        if (auto resolutionCheckFunc = Memory::PatternScan(baseModule, "48 89 ?? ?? ?? 48 89 ?? ?? ?? 57 48 83 EC ?? 48 8B ?? ?? ?? ?? ?? 66 0F")) {
             spdlog::info("Resolution: Found Resolution Check Signature at: {}", reinterpret_cast<void*>(resolutionCheckFunc));
 
             // Store original function pointer
@@ -108,62 +104,18 @@ namespace EnigmaFix
             // ResolutionPatchHook = safetyhook::create_inline(OriginalResCheckFunction, ResCheckFunctionHook);
         }
 
-        // Signature for 4K Native text: "34 ?? 20 4E 61 74 69 76 65"
-        // TODO: Take into account the other parts of memory that will inevitably duplicate this during runtime. If at any point the in-game overlay changes the custom resolution, we need to run a loop that changes the memory values to reflect this in-game.
-        if (auto native4kText = Memory::PatternScan(baseModule, "34 ?? 20 4E 61 74 69 76 65")) {
-            spdlog::info("Aspect Ratio: Found First Block Function Signature at: {}", reinterpret_cast<void*>(native4kText));
-
-            // Generate resolution string (max 9 bytes including null terminator)
-            std::string replacement = std::to_string(PlayerSettingsPDQ.RES.Resolution.x) + "x" + std::to_string(PlayerSettingsPDQ.RES.Resolution.y);
-
-            // Ensure we do not exceed 9 bytes
-            if (replacement.size() > 9) {
-                spdlog::error("Resolution string '{}' is too long! Defaulting to 'Custom'.", replacement);
-                std::string replacement = "Custom";
-                return;
-            }
-
-            // Write the replacement string directly to the memory address
-            for (size_t i = 0; i < replacement.size(); ++i) {
-                Memory::Write(reinterpret_cast<uintptr_t>(native4kText + i), replacement[i]);
-            }
-
-            // Null-pad remaining bytes if the replacement string is less than 9 bytes
-            for (size_t i = replacement.size(); i < 9; ++i) {
-                Memory::Write(reinterpret_cast<uintptr_t>(native4kText + i), '\0');
-            }
-            spdlog::info("Successfully patched '4K Native' -> '{}'.", replacement);
-        }
-
-        // NOP all of the opcodes that are responsible for blocking any higher resolution from being selected than your primary resolution.
-        // "41 89 ?? ?? 48 83 C4 ?? 41 ?? 5F 5E C3 CC CC CC CC CC CC CC CC CC CC CC CC CC 48 83 EC" ("Application.exe"+485576 - 41 89 7E 0C)
-        NOPPattern(baseModule, "41 89 ?? ?? 48 83 C4 ?? 41 ?? 5F 5E C3 CC CC CC CC CC CC CC CC CC CC CC CC CC 48 83 EC", 4, "Resolution Blocker Opcode 1");
-        // "83 3D 73 F2 78 00"       ("Application.exe"+7C9292 - 83 3D 73 F2 78 00 0A)
-        NOPPattern(baseModule, "83 3D 73 F2 78 00 0A", 7, "Resolution Blocker Opcode 2");
-        // "83 3D DC F1 78 00"       ("Application.exe"+7C9329 - 83 3D DC F1 78 00 0B)
-        NOPPattern(baseModule, "83 3D DC F1 78 00 0B", 7, "Resolution Blocker Opcode 3");
-        // "83 3D 21 F1 78 00"       ("Application.exe"+7C93E4 - 83 3D 21 F1 78 00 0B)
-        NOPPattern(baseModule, "83 3D 21 F1 78 00 0B", 7, "Resolution Blocker Opcode 4");
-        // "83 3D 51 19 79 00"       ("Application.exe"+7C6BB4 - 83 3D 51 19 79 00 0B)
-        NOPPattern(baseModule, "83 3D 51 19 79 00 0B", 7, "Resolution Blocker Opcode 5");
-        // "39 7B ?? 0F 4C"          ("Application.exe"+4852BA - 39 7B 0C)
-        NOPPattern(baseModule, "39 7B ?? 0F 4C", 3, "Resolution Blocker Opcode 6");
-        // "8B 53 ?? 8B 43 ?? 89 41" ("Application.exe"+48530A - 8B 53 0C)
-        NOPPattern(baseModule, "8B 53 ?? 8B 43 ?? 89 41", 3, "Resolution Blocker Opcode 7");
-
         // Signature for currently selected screen mode index:
-        // "00 00 00 00 00 00 00 00 FF 01 00 00 4C 00 ?? 00 01 00 02 00 04 ?? 05 ?? ?? ?? ?? 00 08 00 0E 00 0D ?? ?? ?? ?? 00 12 00 13 00 15 ?? ?? ?? ?? 00 19 00 1B 00 1C ?? 1F 00 21 00 23 00 25 ?? ?? ?? ?? 00 29 00 2A 00 2C ?? 2F 00 31 00 32 00 34 ?? 35 ?? ?? ?? ?? 00 3B 00 3C ?? 3D ?? ?? ?? ?? 00 42 ?? 43 00 ?? ?? 48 00 ?? ?? ?? 00 4A ?? 4B 00 ?? ?? 4E 00 ?? ?? 50 00 51 ?? 52 00 53 ?? 54 00 55 ?? 56 00 57 ?? 58 00 59 ?? 5A 00 5B ?? 5C 00 5D ?? 5E 00 5F ?? 60 00 14 ?? 2B 00 61 00 62 ?? 63 00 64 00 ?? 00 10 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03 02 03 02 00 00 00 00 02 02 02 02 02 02 02 02 00 00 01 01 01 01 01 01 01 01 02 02 02 02 02 02 01 01 01 01 01 01 01 01 01 01 02 02 00 00 02 02 01 01 01 01 02 02 02 02 02 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 01 01 01 00 00 00 00 00 00 00 00 00 00 01 01 03 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 08 00 00 00 3D ?? ?? ?? ?? 4E 01 ?? 34 ?? 01 00 2C ?? 01 00 2B 4E ?? 00 27 4E 01 ?? 24 ?? 01 00 23 4E ?? 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+        // "09 00 00 00 00 00 00 00 00 00 00 00 FF 01 00 00 4C 00 ?? 00 01 00 02 00 04 ?? 05 ?? ?? ?? ?? 00 08 00 0E 00 0D ?? ?? ?? ?? 00 12 00 13 00 15 ?? ?? ?? ?? 00 19 00 1B 00 1C ?? 1F 00 21 00 23 00 25 ?? ?? ?? ?? 00 29 00 2A 00 2C ?? 2F 00 31 00 32 00 34 ?? 35 ?? ?? ?? ?? 00 3B 00 3C ?? 3D ?? ?? ?? ?? 00 42 ?? 43 00 ?? ?? 48 00 ?? ?? ?? 00 4A ?? 4B 00 ?? ?? 4E 00 ?? ?? 50 00 51 ?? 52 00 53 ?<content omitted. Read with read_file_chars(path="C:/Users/Kyra/.gemini/antigravity/scratch/EnigmaFix/Source/Plugins/Plugin_DERQ.cpp", start_char=8650, chars_to_read=6407)>
         // Signature for currently selected resolution index:
-        // "09 00 00 00 00 00 00 00 00 00 00 00 FF 01 00 00 4C 00 ?? 00 01 00 02 00 04 ?? 05 ?? ?? ?? ?? 00 08 00 0E 00 0D ?? ?? ?? ?? 00 12 00 13 00 15 ?? ?? ?? ?? 00 19 00 1B 00 1C ?? 1F 00 21 00 23 00 25 ?? ?? ?? ?? 00 29 00 2A 00 2C ?? 2F 00 31 00 32 00 34 ?? 35 ?? ?? ?? ?? 00 3B 00 3C ?? 3D ?? ?? ?? ?? 00 42 ?? 43 00 ?? ?? 48 00 ?? ?? ?? 00 4A ?? 4B 00 ?? ?? 4E 00 ?? ?? 50 00 51 ?? 52 00 53 ?? 54 00 55 ?? 56 00 57 ?? 58 00 59 ?? 5A 00 5B ?? 5C 00 5D ?? 5E 00 5F ?? 60 00 14 ?? 2B 00 61 00 62 ?? 63 00 64 00 ?? 00 10 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03 02 03 02 00 00 00 00 02 02 02 02 02 02 02 02 00 00 01 01 01 01 01 01 01 01 02 02 02 02 02 02 01 01 01 01 01 01 01 01 01 01 02 02 00 00 02 02 01 01 01 01 02 02 02 02 02 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 01 01 01 00 00 00 00 00 00 00 00 00 00 01 01 03 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 08 00 00 00 3D ?? ?? ?? ?? 4E 01 ?? 34 ?? 01 00 2C ?? 01 00 2B 4E ?? 00 27 4E 01 ?? 24 ?? 01 00 23 4E ?? 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
-
+        // "09 00 00 00 00 00 00 00 00 00 00 00 FF 01 00 00 4C 00 ?? 00 01 00 02 00 04 ?? 05 ?? ?? ?? ?? 00 08 00 0E 00 0D ?? ?? ?? ?? 00 12 00 13 00 15 ?? ?? ?? ?? 00 19 00 1B 00 1C ?? 1F 00 21 00 23 00 25 ?? ?? ?? ?? 00 29 00 2A 00 2C ?? 2F 00 31 00 32 00 34 ?? 35 ?? ?? ?? ?? 00 3B 00 3C ?? 3D ?? ?? ?? ?? 00 42 ?? 43 00 ?? ?? 48 00 ?? ?? ?? 00 4A ?? 4B 00 ?? ?? 4E 00 ?? ?? 50 00 51 ?? 52 00 53 ?<content omitted. Read with read_file_chars(path="C:/Users/Kyra/.gemini/antigravity/scratch/EnigmaFix/Source/Plugins/Plugin_DERQ.cpp", start_char=15520, chars_to_read=6419)>
 
         // Write the custom resolution directly to the game's "4K Native" option variables.
         // This is safe, crash-free, and doesn't require code-hooks because it only writes
         // to global data variables on startup.
         if (PlayerSettingsPDQ.RES.UseCustomRes) {
-            auto* hWinSize4KPtr = reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(baseModule) + 0xF58780);
-            auto* vWinSize4KPtr = reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(baseModule) + 0xF58784);
-            
+            auto* hWinSize4KPtr = reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(PatchManagerPDQ.BaseModule) + 0xF58780);
+            auto* vWinSize4KPtr = reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(PatchManagerPDQ.BaseModule) + 0xF58784);
+
             Memory::Write(reinterpret_cast<uintptr_t>(hWinSize4KPtr), PlayerSettingsPDQ.RES.Resolution.x);
             Memory::Write(reinterpret_cast<uintptr_t>(vWinSize4KPtr), PlayerSettingsPDQ.RES.Resolution.y);
             spdlog::info("Resolution: Patched 4K Option Internal Resolution variables to: {}x{}", *hWinSize4KPtr, *vWinSize4KPtr);
@@ -174,51 +126,11 @@ namespace EnigmaFix
     {
         // TODO: Fix these
         // Disable aspect ratio values from being overwritten
-        //NOPPattern(baseModule, "89 41 ?? 0F 10 ?? ?? 0F 11 ?? ?? 0F 10 ?? ?? 0F 11 ?? ?? 0F 10 ?? ?? 0F 11 ?? ?? 8B 82", 3, "Aspect Ratio Change Blocker Opcode 1"); // (89 41 50)
+        //NOPPattern(baseModule, "89 41 ?? 0F 10 ?? ?? 0F 11 ?? ?? 0F 10 ?? ?? 0F 11 ?? ?? 8B 82", 3, "Aspect Ratio Change Blocker Opcode 1"); // (89 41 50)
         //NOPPattern(baseModule, "F3 0F ?? ?? ?? E8 ?? ?? ?? ?? 85 C0 75", 5, "Aspect Ratio Change Blocker Opcode 2"); // (F3 0F 11 4F 50)
-        //NOPPattern(baseModule, "F3 0F ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 66 0F", 3, "Aspect Ratio Change Blocker Opcode 3"); // (F3 0F 11 4F 50)
-        //NOPPattern(baseModule, "8B 42 ?? 89 41 ?? 0F 10 ?? ?? 0F 11 ?? ?? 0F 10 ?? ?? 0F 11 ?? ?? 0F 10 ?? ?? 0F 11 ?? ?? 8B 82", 3, "Aspect Ratio Change Blocker Opcode 4");// (8B 42 50)
-
-        // TODO: Figure out what opcodes access these memory pointers, and update them to use our own internal aspect ratio variable.
-        // Set up the pointer addresses for our aspect ratio variables
-
-        auto aspectRatioPtr1     = reinterpret_cast<int*>(reinterpret_cast<intptr_t>(PatchManagerPDQ.BaseModule) + 0x25EFC6);
-        auto aspectRatioPtr2     = reinterpret_cast<int*>(reinterpret_cast<intptr_t>(PatchManagerPDQ.BaseModule) + 0x789B2C);
-        auto aspectRatioPtr3     = reinterpret_cast<int*>(reinterpret_cast<intptr_t>(PatchManagerPDQ.BaseModule) + 0xE32A30);
-
-        // Overwrite the aspect ratio values with our own.
-        if (aspectRatioPtr1 != nullptr) {
-            //Memory::Write(reinterpret_cast<uintptr_t>(aspectRatioPtr1), PlayerSettingsPDQ.RES.InternalAspectRatio);
-            //spdlog::info("Aspect Ratio: Patched Aspect Ratio Pointer 1 to: {}", *aspectRatioPtr1);
-        }
-        else {spdlog::error("Aspect Ratio: Aspect Ratio Pointer 1 is NULL"); }
-
-        if (aspectRatioPtr2 != nullptr) {
-            //Memory::Write(reinterpret_cast<uintptr_t>(aspectRatioPtr2), PlayerSettingsPDQ.RES.InternalAspectRatio);
-            //spdlog::info("Aspect Ratio: Patched Aspect Ratio Pointer 1 to: {}", *aspectRatioPtr2);
-        }
-        else {spdlog::error("Aspect Ratio: Aspect Ratio Pointer 2 is NULL"); }
-
-        // Address that accesses aspect ratio ptr 3: "F3 0F ? ? ? ? ? ? F3 0F ? ? ? ? ? ? F3 0F ? ? ? ? F3 0F ? ? ? ? ? ? F3 0F ? ? ? F3 0F ? ? ? F3 0F ? ? ? ? 0F 57" - Application.exe + 0x007951F9 (movss xmm0,[140E32A30])
-        if (aspectRatioPtr3 != nullptr) {
-            //Memory::Write(reinterpret_cast<uintptr_t>(aspectRatioPtr3), PlayerSettingsPDQ.RES.InternalAspectRatio);
-            //spdlog::info("Aspect Ratio: Patched Aspect Ratio Pointer 3 to: {}", *aspectRatioPtr3);
-        }
-        else {spdlog::error("Aspect Ratio: Aspect Ratio Pointer 3 is NULL"); }
-
-        // Address that accesses object aspect ratio ptr: "8B 87 ? ? ? ? 89 87 ? ? ? ? 8B 87 ? ? ? ? 89 87 ? ? ? ? 8B 87 ? ? ? ? 89 87 ? ? ? ? E8" - Application.exe + 0x006E069B (mov eax,[rdi+000004D0])
-
-        // Write to the object aspect ratio pointer
-        // TODO: Figure out why the object aspect ratio pointer isn't working right.
-        auto* objectAspectRatioPtr = reinterpret_cast<float*>(reinterpret_cast<intptr_t>(baseModule) + 0x01043B30 + 0xC90);
-        if (objectAspectRatioPtr != nullptr) {
-            spdlog::info("Object Aspect Ratio: {}", *objectAspectRatioPtr);
-            // TODO: Find a way to change run resolution and aspect ratio checks every time the internal rendering resolution changes.
-            //Memory::Write(reinterpret_cast<uintptr_t>(objectAspectRatioPtr), PlayerSettingsPDQ.RES.InternalAspectRatio);
-            //spdlog::info("Aspect Ratio: Patched Aspect Ratio to: {}", *objectAspectRatioPtr);
-        }
-        else {
-            spdlog::error("Aspect Ratio: Object Aspect Ratio pointer is NULL");
+        // NOP out the specified number of bytes (replace with "00")
+        for (size_t i = 0; i < 5; ++i) {
+            Memory::Write(reinterpret_cast<uintptr_t>(cpuSchedulerPatchIntel + i), static_cast<uint8_t>(cpuSchedulerModeByte));
         }
     }
 
@@ -253,18 +165,18 @@ namespace EnigmaFix
                 auto mainCamera = cameraManagerPtr[8]; // 0x40 offset
                 if (ctx.rcx == mainCamera) {
                     float originalFOV = ctx.xmm0.f32[0];
-                    
+
                     // Only override if the written value is close to the default gameplay FOV (43.0f to 46.0f).
                     // This retains director-intended FOV values during in-game cutscenes / cinematics!
                     if (originalFOV >= 43.0f && originalFOV <= 46.0f) {
                         float targetFOV = static_cast<float>(PlayerSettingsPDQ.FOV.FieldOfView);
-                        
-                        // Adaptive FOV scaling (Vert+) for narrow aspect ratios (like 16:10 or 4:3)
+
+                        // Adaptive FOV scaling (Vert+) for narrow aspect ratios (like 16:10 or 4:3).
                         if (PlayerSettingsPDQ.FOV.AdaptiveFOVScaling) {
                             float currentAspect = PlayerSettingsPDQ.RES.InternalAspectRatio;
                             targetFOV = FOV::AdjustFOVHorPlusToVertPlus(currentAspect, targetFOV);
                         }
-                        
+
                         ctx.xmm0.f32[0] = targetFOV;
                     }
                 }
@@ -306,7 +218,7 @@ namespace EnigmaFix
         if (PlayerSettingsPDQ.MS.SkipOpeningVideos) {
             // Anchor: short relative path "game_op.usm" immediately before the full paths
             if (auto movieStrings = Memory::PatternScan(baseModule,
-                "67 61 6D 65 5F 6F 70 2E 75 73 6D 00 2E 2E 2F 2E 2E 2F 72 65 73 6F 75 72 63 65")) {
+                "67 61 64 65 5F 6F 70 2E 75 73 6D 00 2E 2E 2F 2E 2E 2F 72 65 73 6F 75 72 63 65")) {
                 spdlog::info("Skip Intro: Found movie string block at: {}", reinterpret_cast<void*>(movieStrings));
                 // Zero out movie filenames only (161 bytes):
                 //   game_op.usm (12) + logo_if.usm (48) + logo_ch.usm (48) + logo_silicon.usm (53)
@@ -323,7 +235,7 @@ namespace EnigmaFix
             // This is clean, safe, and avoids the black screen state machine hang because the game
             // transitions to the title screen when it thinks there are 0 warnings left.
             auto* scanBytes = reinterpret_cast<uint8_t*>(baseModule);
-            auto dosHeader = reinterpret_cast<PIMAGE_DOS_HEADER>(baseModule);
+            auto dosHeader = reinterpret_cast<PIMAGE_DOS_HEADER>(scanBytes + dosHeader->e_lfanew);
             auto ntHeaders = reinterpret_cast<PIMAGE_NT_HEADERS>(scanBytes + dosHeader->e_lfanew);
             auto sizeOfImage = ntHeaders->OptionalHeader.SizeOfImage;
 
@@ -339,20 +251,13 @@ namespace EnigmaFix
         }
     }
 
-    //void __attribute__((naked)) FramerateUnlockHook() {
-        //asm volatile (
-            //"movl $1, %eax\n\t"
-            //"ret\n\t"
-        //);
-    //}
-
     void Plugin_DERQ::FrameratePatches(HMODULE baseModule)
     {
         static safetyhook::MidHook framerateMidHook;
 
         if (auto framerateCapFunc = Memory::PatternScan(baseModule, "8B 80 ?? ?? ?? ?? 89 44 ?? ?? 83 7C 24 44 ?? 74 ?? 83 7C 24 44")) {
             spdlog::info("Found Framerate Limiter Signature at: {}", reinterpret_cast<void*>(framerateCapFunc));
-            
+
             // Hook right after the game reads its internal frame cap setting into eax.
             // We sleep the thread for our custom cap, and then overwrite eax with 999
             // so that the game's default switch statement falls through and bypasses the internal cap.
@@ -432,13 +337,13 @@ namespace EnigmaFix
         }
 
         if (PlayerSettingsPDQ.RS.LensFlare) {
-            if (auto lensFlareToggleFunc = Memory::PatternScan(baseModule, "42 88 ?? ?? ?? ?? ?? ?? 48 8D ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ?? 49 69 C7 ?? ?? ?? ?? 0F 28 ?? 0F 28 ?? F3 41 ?? ?? ?? ?? ?? ?? ?? F3 42 ?? ?? ?? ?? ?? ?? ?? ?? F3 0F ?? ?? F3 42 ?? ?? ?? ?? ?? ?? ?? ?? 48 8D ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ?? 49 69 C7 ?? ?? ?? ?? 0F 28 ?? 0F 28 ?? F3 41 ?? ?? ?? ?? ?? ?? ?? F3 42 ?? ?? ?? ?? ?? ?? ?? ?? F3 0F ?? ?? F3 42 ?? ?? ?? ?? ?? ?? ?? ?? 48 8D ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ?? 41 0F")) { // "Application.exe"+29CE43: mov [rcx+r13+000000EC],al (42 88 84 29 EC 00 00 00)
+            if (auto lensFlareToggleFunc = Memory::PatternScan(baseModule, "42 88 ?? ?? ?? ?? ?? ?? 48 8D ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ?? 49 69 C7 ?? ?? ?? ?? 0F 28 ?? 0F 28 ?? F3 41 ?? ?? ?? ?? ?<content omitted. Read with read_file_chars(path="C:/Users/Kyra/.gemini/antigravity/scratch/EnigmaFix/Source/Plugins/Plugin_DERQ.cpp", start_char=39444, chars_to_read=256)>
                 spdlog::info("Post Processing: Found Lens Flare Signature at: {}", reinterpret_cast<void*>(lensFlareToggleFunc));
             }
         }
 
         if (PlayerSettingsPDQ.RS.Fog) {
-            if (auto fogToggleFunc = Memory::PatternScan(baseModule, "88 44 ?? ?? 48 8D ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ?? 49 6B C7 ?? 0F 28 ?? 0F 28 ?? F3 41 ?? ?? ?? ?? ?? ?? ?? F3 0F ?? ?? ?? ?? F3 0F ?? ?? F3 0F ?? ?? ?? ?? 48 8D ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ?? 49 8D ?? ?? ?? ?? ?? 0F 28 ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 44 8B")) { // "Application.exe"+29D495: mov [rcx+rsi+04],al; lea rdx,[rsp+50] (88 44 31 04 48 8D 54 24 50; F3 0F 58 C8 F3 42 0F 11 8C 28 64 01 00 00)
+            if (auto fogToggleFunc = Memory::PatternScan(baseModule, "88 44 ?? ?? 48 8D ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ?? 49 6B C7 ?? 0F 28 ?? 0F 28 ?? F3 41 ?? ?? ?? ?? ?<content omitted. Read with read_file_chars(path="C:/Users/Kyra/.gemini/antigravity/scratch/EnigmaFix/Source/Plugins/Plugin_DERQ.cpp", start_char=39444, chars_to_read=256)>
                 spdlog::info("Post Processing: Found Fog Signature at: {}", reinterpret_cast<void*>(fogToggleFunc));
             }
         }
@@ -448,19 +353,19 @@ namespace EnigmaFix
             // E8 ?? ?? ?? ?? 49 8B ?? E8 ?? ?? ?? ?? 48 8D ?? ?? 4C 89 (Application.exe+2981AD - E8 8E AE FF FF - call Application.exe+293040) This needs to have a switch statement that checks things before running it.
 
             // In the post processing settings
-            if (auto rlrLightingToggleFunc = Memory::PatternScan(baseModule, "42 88 ?? ?? ?? ?? ?? ?? 48 8D ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ?? 49 69 C7 ?? ?? ?? ?? 0F 28 ?? 0F 28 ?? F3 41 ?? ?? ?? ?? ?? ?? ?? F3 42 ?? ?? ?? ?? ?? ?? ?? ?? F3 0F ?? ?? F3 42 ?? ?? ?? ?? ?? ?? ?? ?? 48 8D ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ?? 49 69 C7 ?? ?? ?? ?? 0F 28 ?? 0F 28 ?? F3 41 ?? ?? ?? ?? ?? ?? ?? F3 42 ?? ?? ?? ?? ?? ?? ?? ?? F3 0F ?? ?? F3 42 ?? ?? ?? ?? ?? ?? ?? ?? 48 8D ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8D")) { // "Application.exe"+29D3DF: mov [rcx+r13+000001C4],al (42 88 84 29 C4 01 00 00)
+            if (auto rlrLightingToggleFunc = Memory::PatternScan(baseModule, "42 88 ?? ?? ?? ?? ?? ?? 48 8D ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ?? 49 69 C7 ?? ?? ?? ?? 0F 28 ?? 0F 28 ?? F3 41 ?? ?? ?? ?? ?<content omitted. Read with read_file_chars(path="C:/Users/Kyra/.gemini/antigravity/scratch/EnigmaFix/Source/Plugins/Plugin_DERQ.cpp", start_char=41320, chars_to_read=246)>
                 spdlog::info("Post Processing: Found RLR Lighting Signature at: {}", reinterpret_cast<void*>(rlrLightingToggleFunc));
             }
         }
 
         if (PlayerSettingsPDQ.RS.CameraDistortion) {
-            if (auto cameraDistortionToggleFunc = Memory::PatternScan(baseModule, "42 88 ?? ?? ?? ?? ?? ?? 48 8D ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ?? 49 69 C7 ?? ?? ?? ?? 0F 28 ?? 0F 28 ?? F3 41 ?? ?? ?? ?? ?? ?? ?? F3 42 ?? ?? ?? ?? ?? ?? ?? ?? F3 0F ?? ?? F3 42 ?? ?? ?? ?? ?? ?? ?? ?? 48 8D ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ?? 41 0F")) { // "Application.exe"+29CEF5: mov [rcx+r13+00000160],al (42 88 84 29 60 01 00 00)
+            if (auto cameraDistortionToggleFunc = Memory::PatternScan(baseModule, "42 88 ?? ?? ?? ?? ?? ?? 48 8D ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ?? 49 69 C7 ?? ?? ?? ?? 0F 28 ?? 0F 28 ?? F3 41 ?? ?? ?? ?? ?<content omitted. Read with read_file_chars(path="C:/Users/Kyra/.gemini/antigravity/scratch/EnigmaFix/Source/Plugins/Plugin_DERQ.cpp", start_char=39444, chars_to_read=256)>
                 spdlog::info("Post Processing: Found Camera Distortion Signature at: {}", reinterpret_cast<void*>(cameraDistortionToggleFunc));
             }
         }
 
         if (PlayerSettingsPDQ.RS.Bloom) {
-            if (auto bloomToggleFunc = Memory::PatternScan(baseModule, "42 88 ?? ?? ?? ?? ?? ?? 48 8D ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ?? 66 41 ?? ?? ?? ?? ?? ?? ?? 49 69 CF ?? ?? ?? ?? 0F 5B ?? F3 0F ?? ?? 66 42 ?? ?? ?? ?? ?? ?? ?? ?? 0F 5B ?? F3 0F ?? ?? F3 0F ?? ?? F3 0F ?? ?? 42 89 ?? ?? ?? ?? ?? ?? 48 8D ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ?? 41 8B")) { // "Application.exe"+29CB44: mov [rcx+r13+000000BC],al (42 88 84 29 BC 00 00 00)
+            if (auto bloomToggleFunc = Memory::PatternScan(baseModule, "42 88 ?? ?? ?? ?? ?? ?? 48 8D ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ?? 66 41 ?? ?? ?? ?? ?<content omitted. Read with read_file_chars(path="C:/Users/Kyra/.gemini/antigravity/scratch/EnigmaFix/Source/Plugins/Plugin_DERQ.cpp", start_char=39444, chars_to_read=256)>
                 spdlog::info("Post Processing: Found Bloom Signature at: {}", reinterpret_cast<void*>(bloomToggleFunc));
             }
         }
@@ -479,13 +384,13 @@ namespace EnigmaFix
         }
 
         if (PlayerSettingsPDQ.RS.DepthOfField) {
-            if (auto dofToggleFunc = Memory::PatternScan(baseModule, "42 88 ?? ?? ?? ?? ?? ?? 48 8D ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ?? 49 69 C7 ?? ?? ?? ?? 0F 28 ?? 0F 28 ?? F3 41 ?? ?? ?? ?? ?? ?? ?? F3 42 ?? ?? ?? ?? ?? ?? ?? ?? F3 0F ?? ?? F3 42 ?? ?? ?? ?? ?? ?? ?? ?? 48 8D ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ?? 41 8B")) { // "Application.exe"+29C600: mov [rcx+r13+00000118],al (42 88 84 29 18 01 00 00)
+            if (auto dofToggleFunc = Memory::PatternScan(baseModule, "42 88 ?? ?? ?? ?? ?? ?? 48 8D ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ?? 49 69 C7 ?? ?? ?? ?? 0F 28 ?? 0F 28 ?? F3 41 ?? ?? ?? ?<content omitted. Read with read_file_chars(path="C:/Users/Kyra/.gemini/antigravity/scratch/EnigmaFix/Source/Plugins/Plugin_DERQ.cpp", start_char=39444, chars_to_read=256)>
                 spdlog::info("Post Processing: Found Depth of Field Signature at: {}", reinterpret_cast<void*>(dofToggleFunc));
             }
         }
 
         if (PlayerSettingsPDQ.RS.SSAO) {
-            if (auto ssaoToggleFunc = Memory::PatternScan(baseModule, "42 88 ?? ?? ?? ?? ?? ?? 48 8D ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ?? 66 41 ?? ?? ?? ?? ?? ?? ?? 49 69 CF ?? ?? ?? ?? 0F 5B ?? F3 0F ?? ?? 66 42 ?? ?? ?? ?? ?? ?? ?? ?? 0F 5B ?? F3 0F ?? ?? F3 0F ?? ?? F3 0F ?? ?? 42 89 ?? ?? ?? ?? ?? ?? 48 8D ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ?? 49 69 C7")) { // "Application.exe"+29D0BE: mov [rcx+r13+00000168],al (42 88 84 29 68 01 00 00)
+            if (auto ssaoToggleFunc = Memory::PatternScan(baseModule, "42 88 ?? ?? ?? ?? ?? ?? 48 8D ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ?? 66 41 ?? ?? ?? ?? ?<content omitted. Read with read_file_chars(path="C:/Users/Kyra/.gemini/antigravity/scratch/EnigmaFix/Source/Plugins/Plugin_DERQ.cpp", start_char=39444, chars_to_read=256)>
                 spdlog::info("Post Processing: Found SSAO Signature at: {}", reinterpret_cast<void*>(ssaoToggleFunc));
             }
         }
@@ -500,7 +405,7 @@ namespace EnigmaFix
         }
 
         if (!PlayerSettingsPDQ.RS.Vignette) { // This one works a little bit differently, as you need to move a new float variable to the xmm1 register BEFORE the opcode is done, that way we can override the float variable used for the vignette intensity.
-            if (auto vignetteFunc = Memory::PatternScan(baseModule, "F3 42 ?? ?? ?? ?? ?? ?? ?? ?? 48 8D ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ?? 41 0F ?? ?? ?? ?? ?? ?? 49 69 CF ?? ?? ?? ?? 42 88 ?? ?? ?? 48 8D ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ?? 41 0F")) { // "Application.exe"+29CF36: movss [rax+r13+00000164],xmm1 (F3 42 0F 11 8C 28 64 01 00 00)
+            if (auto vignetteFunc = Memory::PatternScan(baseModule, "F3 42 ?? ?? ?? ?? ?? ?? ?? ?? ?<content omitted. Read with read_file_chars(path="C:/Users/Kyra/.gemini/antigravity/scratch/EnigmaFix/Source/Plugins/Plugin_DERQ.cpp", start_char=39444, chars_to_read=256)>
                 spdlog::info("Post Processing: Found Vignette Signature at: {}", reinterpret_cast<void*>(vignetteFunc));
                 static SafetyHookMid vignetteFuncMidHook{};
                 vignetteFuncMidHook = safetyhook::create_mid(vignetteFunc,
@@ -587,6 +492,103 @@ namespace EnigmaFix
     }
 
     // ALT+F4 Window Signatures:
+
+    // Battle Movement Decoupling Hooks
+    // These hooks scale enemy/entity movement by the dynamic FPS scale (60.0f / currentFPS)
+    // to keep gameplay speed consistent regardless of framerate. This prevents enemies from
+    // moving too fast at high framerates while keeping game logic decoupled.
+
+    void Plugin_DERQ::BattleMovementPatches(HMODULE baseModule) {
+        // Battle Movement Decoupling Hooks
+        // These hooks scale enemy/entity movement by the dynamic FPS scale (60.0f / currentFPS)
+        // to keep gameplay speed consistent regardless of framerate. This prevents enemies from
+        // moving too fast at high framerates while keeping game logic decoupled.
+
+        static safetyhook::MidHook battleMovementHook1;
+        if (auto battleSig1 = Memory::PatternScan(baseModule, "F3 0F 10 4C 24 50")) {
+            spdlog::info("Battle Movement: Found Fix 1 Signature at: {}", reinterpret_cast<void*>(battleSig1));
+
+            // Hook at offset +0x2A from the signature start
+            static constexpr int HOOK_OFFSET_1 = 0x2A;
+            battleMovementHook1 = safetyhook::create_mid(battleSig1 + HOOK_OFFSET_1, [](safetyhook::Context& ctx) {
+                float dynamicFPS = 60.0f / FramerateManagerPDQ.fps;
+                ctx.xmm1.f32[0] *= dynamicFPS;
+                ctx.xmm2.f32[0] *= dynamicFPS;
+            });
+        } else {
+            spdlog::error("Battle Movement: Could not find Fix 1 Signature!");
+        }
+
+        static safetyhook::MidHook battleMovementHook2;
+        if (auto battleSig2 = Memory::PatternScan(baseModule, "F3 0F 10 4D 10 F3 0F 10 55 14 3C 01 75 12")) {
+            spdlog::info("Battle Movement: Found Fix 2 Signature at: {}", reinterpret_cast<void*>(battleSig2));
+
+            // Hook at offset +0x30 from the signature start
+            static constexpr int HOOK_OFFSET_2 = 0x30;
+            battleMovementHook2 = safetyhook::create_mid(battleSig2 + HOOK_OFFSET_2, [](safetyhook::Context& ctx) {
+                float dynamicFPS = 60.0f / FramerateManagerPDQ.fps;
+                ctx.xmm1.f32[0] *= dynamicFPS;
+                ctx.xmm2.f32[0] *= dynamicFPS;
+            });
+        } else {
+            spdlog::error("Battle Movement: Could not find Fix 2 Signature!");
+        }
+    }}
+
+    void Plugin_DERQ::AnimationPatches(HMODULE baseModule) {
+        // Animation Interpolation Speed Decoupling
+        static safetyhook::MidHook animInterpHook;
+        if (auto animSig = Memory::PatternScan(baseModule, "F3 0F ?? ?? ?? ?? ?? ?? F3 0F ?? ?? ?? ?? EB ?? F3 0F ?? ?? ?? ?? EB ?? F3 0F ?? ?? ?? ?? ?<content omitted. Read with read_file_chars(path="C:/Users/Kyra/.gemini/antigravity/scratch/EnigmaFix/Source/Plugins/Plugin_DERQ.cpp", start_char=17538, chars_to_read=224)>)) {
+            spdlog::info("Animation: Found Animation Interpolation Signature at: {}", reinterpret_cast<void*>(animSig));
+
+            // Hook at offset +0x08 from the signature start
+            static constexpr int HOOK_OFFSET_ANIM = 0x08;
+            animInterpHook = safetyhook::create_mid(animSig + HOOK_OFFSET_ANIM, [](safetyhook::Context& ctx) {
+                float dynamicFPS = 60.0f / FramerateManagerPDQ.fps;
+                ctx.xmm0.f32[0] = dynamicFPS;
+            });
+        } else {
+            spdlog::error("Animation: Could not find Animation Interpolation Signature!");
+        }
+    }}
+
+    void Plugin_DERQ::TwoDEffectsPatches(HMODULE baseModule) {
+        // 2D Effect Speed Decoupling
+        static safetyhook::MidHook effectSpeedHook;
+        if (auto effectSig = Memory::PatternScan(baseModule, "F3 0F ?? ?? ?? ?? ?? ?? 0F 57 ?? F3 0F ?? ?? ?? 0F 2F ?? 0F 83")) {
+            spdlog::info("2D Effects: Found Effect Signature at: {}", reinterpret_cast<void*>(effectSig));
+
+            // Hook at offset +0x08 from the signature start
+            static constexpr int HOOK_OFFSET_EFFECT = 0x08;
+            effectSpeedHook = safetyhook::create_mid(effectSig + HOOK_OFFSET_EFFECT, [](safetyhook::Context& ctx) {
+                float dynamicFPS = 60.0f / FramerateManagerPDQ.fps;
+                ctx.xmm4.f32[0] -= 1.0f + dynamicFPS;
+            });
+        } else {
+            spdlog::error("2D Effects: Could not find Effect Signature!");
+        }
+    }}
+
+    void Plugin_DERQ::Live2DPatches(HMODULE baseModule) {
+        // Live2D Animation Speed Decoupling
+        static safetyhook::MidHook live2DHook;
+        if (auto live2DSig = Memory::PatternScan(baseModule, "F3 44 ?? ?? ?? ?? ?? ?? ?? 45 0F ?? ?? ?? ?? ?<content omitted. Read with read_file_chars(path="C:/Users/Kyra/.gemini/antigravity/scratch/EnigmaFix/Source/Plugins/Plugin_DERQ.cpp", start_char=17538, chars_to_read=224)>)) {
+            spdlog::info("Live2D: Found Live2D Signature at: {}", reinterpret_cast<void*>(live2DSig));
+
+            // Hook at offset +0x09 from the signature start
+            static constexpr int HOOK_OFFSET_LIVE2D = 0x09;
+            live2DHook = safetyhook::create_mid(live2DSig + HOOK_OFFSET_LIVE2D, [](safetyhook::Context& ctx) {
+                float dynamicFPS = 60.0f / FramerateManagerPDQ.fps;
+                ctx.xmm10.f32[0] *= dynamicFPS;
+            });
+        } else {
+            spdlog::error("Live2D: Could not find Live2D Signature!");
+        }
+    }}
+
+    // ALT+F4 Window Signatures:
+    // FF 15 ?? ?? ?? ?? 83 F8 ?? 0F 85
+    // 83 F8 ?? 0F 85 ?? ?? ?? ?? 45 89 ?? 33 C0
     // FF 15 ?? ?? ?? ?? 83 F8 ?? 0F 85
     // 83 F8 ?? 0F 85 ?? ?? ?? ?? 45 89 ?? 33 C0
 } // EnigmaFix
